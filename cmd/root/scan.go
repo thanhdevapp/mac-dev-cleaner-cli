@@ -1,0 +1,101 @@
+package cmd
+
+import (
+	"fmt"
+	"os"
+
+	"github.com/spf13/cobra"
+	"github.com/thanhdevapp/dev-cleaner/internal/scanner"
+	"github.com/thanhdevapp/dev-cleaner/internal/ui"
+	"github.com/thanhdevapp/dev-cleaner/pkg/types"
+)
+
+var (
+	scanIOS     bool
+	scanAndroid bool
+	scanNode    bool
+	scanAll     bool
+)
+
+// scanCmd represents the scan command
+var scanCmd = &cobra.Command{
+	Use:   "scan",
+	Short: "Scan for development artifacts",
+	Long: `Scan your system for development artifacts that can be cleaned.
+
+By default, scans all categories (iOS, Android, Node.js).
+Use flags to scan specific categories only.
+
+Examples:
+  dev-cleaner scan              # Scan all categories
+  dev-cleaner scan --ios        # Scan iOS/Xcode only
+  dev-cleaner scan --android    # Scan Android/Gradle only
+  dev-cleaner scan --node       # Scan Node.js only`,
+	Run: runScan,
+}
+
+func init() {
+	rootCmd.AddCommand(scanCmd)
+
+	scanCmd.Flags().BoolVar(&scanIOS, "ios", false, "Scan iOS/Xcode artifacts only")
+	scanCmd.Flags().BoolVar(&scanAndroid, "android", false, "Scan Android/Gradle artifacts only")
+	scanCmd.Flags().BoolVar(&scanNode, "node", false, "Scan Node.js artifacts only")
+	scanCmd.Flags().BoolVar(&scanAll, "all", true, "Scan all categories (default)")
+}
+
+func runScan(cmd *cobra.Command, args []string) {
+	s, err := scanner.New()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error initializing scanner: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Determine scan options
+	opts := types.ScanOptions{
+		MaxDepth: 3,
+	}
+
+	// If any specific flag is set, use only those
+	if scanIOS || scanAndroid || scanNode {
+		opts.IncludeXcode = scanIOS
+		opts.IncludeAndroid = scanAndroid
+		opts.IncludeNode = scanNode
+	} else {
+		// Default: scan all
+		opts.IncludeXcode = true
+		opts.IncludeAndroid = true
+		opts.IncludeNode = true
+	}
+
+	ui.PrintHeader("Scanning for development artifacts...")
+
+	results, err := s.ScanAll(opts)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error scanning: %v\n", err)
+		os.Exit(1)
+	}
+
+	if len(results) == 0 {
+		fmt.Println("\n  📭 No cleanable items found.")
+		return
+	}
+
+	// Sort by size (largest first)
+	sortBySize(results)
+
+	// Print results with enhanced UI
+	ui.PrintResults(results)
+	ui.PrintSummary(results)
+	ui.PrintFooter()
+}
+
+// sortBySize sorts results by size in descending order
+func sortBySize(results []types.ScanResult) {
+	for i := 0; i < len(results)-1; i++ {
+		for j := i + 1; j < len(results); j++ {
+			if results[j].Size > results[i].Size {
+				results[i], results[j] = results[j], results[i]
+			}
+		}
+	}
+}
