@@ -6,11 +6,25 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/bubbles/key"
+	"github.com/charmbracelet/bubbles/progress"
+	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/thanhdevapp/dev-cleaner/internal/cleaner"
+	"github.com/thanhdevapp/dev-cleaner/internal/scanner"
 	"github.com/thanhdevapp/dev-cleaner/internal/ui"
 	"github.com/thanhdevapp/dev-cleaner/pkg/types"
+)
+
+// State represents the current TUI state
+type State int
+
+const (
+	StateSelecting  State = iota // Viewing and selecting items
+	StateConfirming              // Showing confirmation dialog
+	StateDeleting                // Actively deleting items
+	StateDone                    // Operation complete
+	StateTree                    // Tree navigation view
 )
 
 // Styles
@@ -64,6 +78,11 @@ type KeyMap struct {
 	None    key.Binding
 	Confirm key.Binding
 	Quit    key.Binding
+	// Tree navigation keys
+	DrillDown key.Binding
+	GoBack    key.Binding
+	Refresh   key.Binding
+	ExitTree  key.Binding
 }
 
 var keys = KeyMap{
@@ -95,29 +114,73 @@ var keys = KeyMap{
 		key.WithKeys("q", "ctrl+c"),
 		key.WithHelp("q", "quit"),
 	),
+	// Tree navigation
+	DrillDown: key.NewBinding(
+		key.WithKeys("right", "l"),
+		key.WithHelp("→/l", "drill down"),
+	),
+	GoBack: key.NewBinding(
+		key.WithKeys("left", "h"),
+		key.WithHelp("←/h", "go back"),
+	),
+	Refresh: key.NewBinding(
+		key.WithKeys("r"),
+		key.WithHelp("r", "refresh"),
+	),
+	ExitTree: key.NewBinding(
+		key.WithKeys("esc"),
+		key.WithHelp("esc", "exit tree"),
+	),
 }
 
 // Model represents the TUI state
 type Model struct {
+	state    State
 	items    []types.ScanResult
 	selected map[int]bool
 	cursor   int
 	width    int
 	height   int
 	dryRun   bool
-	cleaning bool
-	done     bool
 	results  []cleaner.CleanResult
 	err      error
 	quitting bool
+
+	// Progress components
+	spinner  spinner.Model
+	progress progress.Model
+	percent  float64
+
+	// Tree navigation state
+	treeMode     bool              // True when in tree view
+	currentNode  *types.TreeNode   // Current tree node
+	nodeStack    []*types.TreeNode // Breadcrumb trail
+	maxDepth     int               // Max depth limit
+	treeSelected map[string]bool   // Selected items in tree
+	scanning     bool              // True while scanning
 }
 
 // NewModel creates a new TUI model
 func NewModel(items []types.ScanResult, dryRun bool) Model {
+	s := spinner.New()
+	s.Spinner = spinner.Dot
+	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("#7C3AED"))
+
+	p := progress.New(progress.WithDefaultGradient())
+
 	return Model{
+		state:    StateSelecting,
 		items:    items,
 		selected: make(map[int]bool),
 		dryRun:   dryRun,
+		spinner:  s,
+		progress: p,
+		// Tree navigation
+		treeMode:     false,
+		nodeStack:    make([]*types.TreeNode, 0),
+		maxDepth:     5,
+		treeSelected: make(map[string]bool),
+		scanning:     false,
 	}
 }
 
@@ -132,49 +195,156 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
+		m.progress.Width = msg.Width - 10
 		return m, nil
 
+	case spinner.TickMsg:
+		var cmd tea.Cmd
+		m.spinner, cmd = m.spinner.Update(msg)
+		return m, cmd
+
+	case progress.FrameMsg:
+		progressModel, cmd := m.progress.Update(msg)
+		m.progress = progressModel.(progress.Model)
+		return m, cmd
+
+	case deleteProgressMsg:
+		m.percent = msg.percent
+		cmd := m.progress.SetPercent(m.percent)
+		return m, cmd
+
 	case tea.KeyMsg:
-		if m.done {
-			return m, tea.Quit
-		}
-
-		switch {
-		case key.Matches(msg, keys.Quit):
-			m.quitting = true
+		// Handle based on current state
+		switch m.state {
+		case StateDone:
 			return m, tea.Quit
 
-		case key.Matches(msg, keys.Up):
-			if m.cursor > 0 {
-				m.cursor--
+		case StateConfirming:
+			switch msg.String() {
+			case "y", "Y":
+				m.state = StateDeleting
+				m.percent = 0
+				return m, tea.Batch(m.performClean(), m.progress.SetPercent(0))
+			case "n", "N", "esc":
+				m.state = StateSelecting
+				return m, nil
+			}
+			return m, nil
+
+		case StateDeleting:
+			// Ignore key presses while deleting
+			if key.Matches(msg, keys.Quit) {
+				m.quitting = true
+				return m, tea.Quit
+			}
+			return m, nil
+
+		case StateSelecting:
+			switch {
+			case key.Matches(msg, keys.Quit):
+				m.quitting = true
+				return m, tea.Quit
+
+			case key.Matches(msg, keys.Up):
+				if m.cursor > 0 {
+					m.cursor--
+				}
+
+			case key.Matches(msg, keys.Down):
+				if m.cursor < len(m.items)-1 {
+					m.cursor++
+				}
+
+			case key.Matches(msg, keys.Toggle):
+				m.selected[m.cursor] = !m.selected[m.cursor]
+
+			case key.Matches(msg, keys.All):
+				for i := range m.items {
+					m.selected[i] = true
+				}
+
+			case key.Matches(msg, keys.None):
+				m.selected = make(map[int]bool)
+
+			case key.Matches(msg, keys.Confirm):
+				if m.countSelected() > 0 {
+					m.state = StateConfirming
+					return m, nil
+				}
+
+			case key.Matches(msg, keys.DrillDown):
+				// Enter tree mode for current item
+				if m.cursor < len(m.items) {
+					m.state = StateTree
+					m.treeMode = true
+					m.scanning = true
+					return m, m.enterTreeMode()
+				}
 			}
 
-		case key.Matches(msg, keys.Down):
-			if m.cursor < len(m.items)-1 {
-				m.cursor++
-			}
+		case StateTree:
+			switch {
+			case key.Matches(msg, keys.Quit):
+				m.quitting = true
+				return m, tea.Quit
 
-		case key.Matches(msg, keys.Toggle):
-			m.selected[m.cursor] = !m.selected[m.cursor]
+			case key.Matches(msg, keys.ExitTree):
+				m.exitTreeMode()
+				return m, nil
 
-		case key.Matches(msg, keys.All):
-			for i := range m.items {
-				m.selected[i] = true
-			}
+			case key.Matches(msg, keys.GoBack):
+				m.goBackInTree()
+				return m, nil
 
-		case key.Matches(msg, keys.None):
-			m.selected = make(map[int]bool)
+			case key.Matches(msg, keys.DrillDown):
+				return m, m.drillDownInTree()
 
-		case key.Matches(msg, keys.Confirm):
-			if m.countSelected() > 0 {
-				return m, m.performClean()
+			case key.Matches(msg, keys.Refresh):
+				if m.currentNode != nil {
+					m.scanning = true
+					return m, m.rescanNode(m.currentNode)
+				}
+				return m, nil
+
+			case key.Matches(msg, keys.Up):
+				if m.cursor > 0 {
+					m.cursor--
+				}
+
+			case key.Matches(msg, keys.Down):
+				if m.currentNode != nil && m.currentNode.HasChildren() {
+					if m.cursor < len(m.currentNode.Children)-1 {
+						m.cursor++
+					}
+				}
+
+			case key.Matches(msg, keys.Toggle):
+				if m.currentNode != nil && m.currentNode.HasChildren() {
+					if m.cursor < len(m.currentNode.Children) {
+						child := m.currentNode.Children[m.cursor]
+						m.treeSelected[child.Path] = !m.treeSelected[child.Path]
+					}
+				}
 			}
 		}
 
 	case cleanResultMsg:
-		m.done = true
+		m.state = StateDone
 		m.results = msg.results
 		m.err = msg.err
+		return m, nil
+
+	case scanNodeMsg:
+		m.scanning = false
+		if msg.err != nil {
+			m.err = msg.err
+			return m, nil
+		}
+		if m.currentNode == nil {
+			m.currentNode = msg.node
+			m.nodeStack = make([]*types.TreeNode, 0)
+		}
+		m.cursor = 0
 		return m, nil
 	}
 
@@ -185,6 +355,124 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 type cleanResultMsg struct {
 	results []cleaner.CleanResult
 	err     error
+}
+
+// deleteProgressMsg is sent to update progress bar
+type deleteProgressMsg struct {
+	percent float64
+}
+
+// scanNodeMsg is sent when folder scan completes
+type scanNodeMsg struct {
+	node *types.TreeNode
+	err  error
+}
+
+// enterTreeMode transitions from flat list to tree view
+func (m Model) enterTreeMode() tea.Cmd {
+	return func() tea.Msg {
+		if m.cursor >= len(m.items) {
+			return scanNodeMsg{err: fmt.Errorf("invalid cursor position")}
+		}
+
+		item := m.items[m.cursor]
+
+		s, err := scanner.New()
+		if err != nil {
+			return scanNodeMsg{err: err}
+		}
+
+		// Scan children
+		scanned, err := s.ScanDirectory(item.Path, 0, m.maxDepth)
+		if err != nil {
+			return scanNodeMsg{err: err}
+		}
+
+		return scanNodeMsg{node: scanned}
+	}
+}
+
+// exitTreeMode returns to flat list view
+func (m *Model) exitTreeMode() {
+	m.state = StateSelecting
+	m.treeMode = false
+	m.currentNode = nil
+	m.nodeStack = make([]*types.TreeNode, 0)
+	m.cursor = 0
+	m.scanning = false
+}
+
+// goBackInTree navigates to parent node
+func (m *Model) goBackInTree() {
+	if len(m.nodeStack) == 0 {
+		m.exitTreeMode()
+		return
+	}
+
+	m.currentNode = m.nodeStack[len(m.nodeStack)-1]
+	m.nodeStack = m.nodeStack[:len(m.nodeStack)-1]
+	m.cursor = 0
+}
+
+// drillDownInTree navigates into child node
+func (m *Model) drillDownInTree() tea.Cmd {
+	if m.currentNode == nil || !m.currentNode.HasChildren() {
+		return nil
+	}
+
+	if m.cursor >= len(m.currentNode.Children) {
+		return nil
+	}
+
+	selectedNode := m.currentNode.Children[m.cursor]
+
+	if !selectedNode.IsDir {
+		return nil
+	}
+
+	if selectedNode.Depth >= m.maxDepth {
+		return nil
+	}
+
+	if selectedNode.NeedsScanning() {
+		m.scanning = true
+		return m.scanNode(selectedNode)
+	}
+
+	m.nodeStack = append(m.nodeStack, m.currentNode)
+	m.currentNode = selectedNode
+	m.cursor = 0
+
+	return nil
+}
+
+// scanNode scans a tree node's children lazily
+func (m Model) scanNode(node *types.TreeNode) tea.Cmd {
+	return func() tea.Msg {
+		s, err := scanner.New()
+		if err != nil {
+			return scanNodeMsg{err: err}
+		}
+
+		scanned, err := s.ScanDirectory(node.Path, node.Depth, m.maxDepth)
+		if err != nil {
+			return scanNodeMsg{err: err}
+		}
+
+		node.Children = scanned.Children
+		node.Scanned = true
+
+		return scanNodeMsg{node: node}
+	}
+}
+
+// rescanNode refreshes a node's children
+func (m Model) rescanNode(node *types.TreeNode) tea.Cmd {
+	return func() tea.Msg {
+		node.Scanned = false
+		node.Children = nil
+		return m.scanNode(node)()
+	}
 }
 
 // performClean starts the cleaning process
@@ -224,11 +512,195 @@ func (m Model) View() string {
 	b.WriteString(titleStyle.Render(title))
 	b.WriteString("\n\n")
 
-	// Done state
-	if m.done {
+	// Render based on current state
+	switch m.state {
+	case StateDone:
 		return m.renderResults(&b)
+
+	case StateDeleting:
+		b.WriteString("🗑️  Deleting selected items...\n\n")
+		b.WriteString(m.progress.View())
+		b.WriteString("\n\n")
+		b.WriteString(helpStyle.Render("Press q to cancel"))
+		return b.String()
+
+	case StateConfirming:
+		return m.renderConfirmation(&b)
+
+	case StateTree:
+		return m.renderTreeView(&b)
+
+	case StateSelecting:
+		return m.renderSelection(&b)
 	}
 
+	return b.String()
+}
+
+// renderTreeView renders the tree navigation view
+func (m Model) renderTreeView(b *strings.Builder) string {
+	if m.currentNode == nil {
+		b.WriteString(errorStyle.Render("No tree node selected"))
+		return b.String()
+	}
+
+	// Breadcrumb
+	breadcrumb := m.buildBreadcrumb()
+	b.WriteString(helpStyle.Render(breadcrumb))
+	b.WriteString("\n\n")
+
+	// Current folder info
+	folderInfo := fmt.Sprintf("📁 %s  •  %s  •  %d items",
+		m.currentNode.Name,
+		ui.FormatSize(m.currentNode.Size),
+		len(m.currentNode.Children),
+	)
+	b.WriteString(statusStyle.Render(folderInfo))
+	b.WriteString("\n\n")
+
+	// Scanning indicator
+	if m.scanning {
+		b.WriteString(m.spinner.View())
+		b.WriteString(" Scanning folder...\n\n")
+	}
+
+	// Children list
+	if !m.currentNode.HasChildren() {
+		b.WriteString(helpStyle.Render("  (Empty folder)"))
+	} else {
+		for i, child := range m.currentNode.Children {
+			cursor := "  "
+			if i == m.cursor {
+				cursor = cursorStyle.Render("▸ ")
+			}
+
+			checkbox := "[ ]"
+			if m.treeSelected[child.Path] {
+				checkbox = checkboxStyle.Render("[✓]")
+			}
+
+			// Icon based on type and scan status
+			icon := m.getTreeIcon(child)
+
+			// Size with color
+			sizeStr := ui.FormatSize(child.Size)
+			sizeStyle := m.getSizeStyle(child.Size)
+
+			line := fmt.Sprintf("%s%s %s %s  %s",
+				cursor,
+				checkbox,
+				icon,
+				sizeStyle.Render(fmt.Sprintf("%10s", sizeStr)),
+				child.Name,
+			)
+
+			if i == m.cursor {
+				b.WriteString(selectedItemStyle.Render(line))
+			} else {
+				b.WriteString(itemStyle.Render(line))
+			}
+			b.WriteString("\n")
+		}
+	}
+
+	// Depth info
+	if m.currentNode.Depth >= m.maxDepth-1 {
+		warning := fmt.Sprintf("\n⚠️  Depth %d/%d - Approaching limit",
+			m.currentNode.Depth+1, m.maxDepth)
+		b.WriteString(errorStyle.Render(warning))
+	}
+
+	// Help
+	help := "\n\n↑/↓: Navigate • →/l: Drill down • ←/h: Go back • r: Refresh • Space: Toggle • Esc: Exit • q: Quit"
+	b.WriteString(helpStyle.Render(help))
+
+	return b.String()
+}
+
+// buildBreadcrumb creates breadcrumb trail
+func (m Model) buildBreadcrumb() string {
+	if m.currentNode == nil {
+		return ""
+	}
+
+	parts := []string{}
+	for _, node := range m.nodeStack {
+		parts = append(parts, node.Name)
+	}
+	parts = append(parts, m.currentNode.Name)
+
+	return "📍 " + strings.Join(parts, " › ")
+}
+
+// getTreeIcon returns icon for tree node
+func (m Model) getTreeIcon(node *types.TreeNode) string {
+	if !node.IsDir {
+		return "📄"
+	}
+
+	if node.Scanned {
+		return "📂" // Opened folder
+	}
+
+	return "📁" // Unopened folder
+}
+
+// getSizeStyle returns styled size based on magnitude
+func (m Model) getSizeStyle(size int64) lipgloss.Style {
+	style := lipgloss.NewStyle().Width(10).Align(lipgloss.Right)
+
+	if size > 1024*1024*1024 { // > 1GB
+		return style.Foreground(lipgloss.Color("#EF4444")).Bold(true)
+	} else if size > 100*1024*1024 { // > 100MB
+		return style.Foreground(lipgloss.Color("#F59E0B"))
+	}
+
+	return style.Foreground(lipgloss.Color("#10B981"))
+}
+
+// countTreeSelected counts selected items in tree
+func (m Model) countTreeSelected() int {
+	count := 0
+	for _, selected := range m.treeSelected {
+		if selected {
+			count++
+		}
+	}
+	return count
+}
+
+// renderConfirmation shows the confirmation dialog
+func (m Model) renderConfirmation(b *strings.Builder) string {
+	selectedCount := m.countSelected()
+	selectedSize := m.selectedSize()
+
+	// Confirmation box style
+	confirmBoxStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("#F59E0B")).
+		Padding(1, 2).
+		Width(50)
+
+	warningStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#F59E0B")).
+		Bold(true)
+
+	confirmMsg := fmt.Sprintf(
+		"%s\n\n"+
+			"  Items: %d\n"+
+			"  Size:  %s\n\n"+
+			"  Press [y] to confirm, [n] to cancel",
+		warningStyle.Render("⚠️  Confirm Deletion"),
+		selectedCount,
+		ui.FormatSize(selectedSize),
+	)
+
+	b.WriteString(confirmBoxStyle.Render(confirmMsg))
+	return b.String()
+}
+
+// renderSelection shows the item selection list
+func (m Model) renderSelection(b *strings.Builder) string {
 	// Items list
 	for i, item := range m.items {
 		cursor := "  "

@@ -6,6 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/thanhdevapp/dev-cleaner/internal/scanner"
+	"github.com/thanhdevapp/dev-cleaner/internal/tui"
 	"github.com/thanhdevapp/dev-cleaner/internal/ui"
 	"github.com/thanhdevapp/dev-cleaner/pkg/types"
 )
@@ -15,6 +16,7 @@ var (
 	scanAndroid bool
 	scanNode    bool
 	scanAll     bool
+	scanTUI     bool
 )
 
 // scanCmd represents the scan command
@@ -41,6 +43,7 @@ func init() {
 	scanCmd.Flags().BoolVar(&scanAndroid, "android", false, "Scan Android/Gradle artifacts only")
 	scanCmd.Flags().BoolVar(&scanNode, "node", false, "Scan Node.js artifacts only")
 	scanCmd.Flags().BoolVar(&scanAll, "all", true, "Scan all categories (default)")
+	scanCmd.Flags().BoolVar(&scanTUI, "tui", false, "Launch interactive TUI for selection")
 }
 
 func runScan(cmd *cobra.Command, args []string) {
@@ -82,6 +85,15 @@ func runScan(cmd *cobra.Command, args []string) {
 
 	// Sort by size (largest first)
 	sortBySize(results)
+
+	// Launch TUI if --tui flag is set
+	if scanTUI {
+		if err := tui.Run(results, false); err != nil {
+			fmt.Fprintf(os.Stderr, "Error running TUI: %v\n", err)
+			os.Exit(1)
+		}
+		return
+	}
 
 	// Print results with enhanced UI
 	ui.PrintResults(results)

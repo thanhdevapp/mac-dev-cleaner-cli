@@ -2,6 +2,7 @@
 package scanner
 
 import (
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -110,4 +111,86 @@ func (s *Scanner) ExpandPath(path string) string {
 func (s *Scanner) PathExists(path string) bool {
 	_, err := os.Stat(path)
 	return err == nil
+}
+
+// ScanDirectory scans a single directory lazily and returns TreeNode with children
+func (s *Scanner) ScanDirectory(path string, currentDepth int, maxDepth int) (*types.TreeNode, error) {
+	// Depth limit check
+	if currentDepth >= maxDepth {
+		return nil, fmt.Errorf("max depth %d reached", maxDepth)
+	}
+
+	// Read directory entries
+	entries, err := os.ReadDir(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read directory %s: %w", path, err)
+	}
+
+	// Calculate total size
+	totalSize, fileCount, _ := s.calculateSize(path)
+
+	// Build TreeNode
+	node := &types.TreeNode{
+		Path:      path,
+		Name:      types.GetBasename(path),
+		Size:      totalSize,
+		IsDir:     true,
+		Children:  make([]*types.TreeNode, 0),
+		Scanned:   true,
+		Depth:     currentDepth,
+		FileCount: fileCount,
+	}
+
+	// Process children
+	for _, entry := range entries {
+		childPath := filepath.Join(path, entry.Name())
+
+		// Skip symlinks to avoid cycles
+		info, err := entry.Info()
+		if err != nil {
+			continue
+		}
+		if info.Mode()&os.ModeSymlink != 0 {
+			continue
+		}
+
+		isDir := entry.IsDir()
+		var childSize int64
+		var childFileCount int
+
+		if isDir {
+			// For directories, calculate size
+			childSize, childFileCount, _ = s.calculateSize(childPath)
+		} else {
+			// For files, use file size
+			childSize = info.Size()
+			childFileCount = 1
+		}
+
+		child := &types.TreeNode{
+			Path:      childPath,
+			Name:      entry.Name(),
+			Size:      childSize,
+			IsDir:     isDir,
+			Scanned:   false, // Lazy - not scanned yet
+			Depth:     currentDepth + 1,
+			FileCount: childFileCount,
+		}
+
+		node.AddChild(child)
+	}
+
+	return node, nil
+}
+
+// ScanResultToTreeNode converts ScanResult to initial TreeNode
+func (s *Scanner) ScanResultToTreeNode(result types.ScanResult) (*types.TreeNode, error) {
+	node := types.ScanResultToTreeNode(result)
+
+	// Verify path exists
+	if !s.PathExists(result.Path) {
+		return nil, fmt.Errorf("path does not exist: %s", result.Path)
+	}
+
+	return node, nil
 }
