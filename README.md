@@ -39,25 +39,25 @@ Download the latest release for your platform:
 
 **macOS (Apple Silicon):**
 ```bash
-curl -L https://github.com/thanhdevapp/mac-dev-cleaner-cli/releases/latest/download/dev-cleaner_darwin_arm64.tar.gz | tar xz
+curl -L https://github.com/thanhdevapp/mac-dev-cleaner-cli/releases/download/v1.0.0/dev-cleaner_1.0.0_darwin_arm64.tar.gz | tar xz
 sudo mv dev-cleaner /usr/local/bin/
 ```
 
 **macOS (Intel):**
 ```bash
-curl -L https://github.com/thanhdevapp/mac-dev-cleaner-cli/releases/latest/download/dev-cleaner_darwin_amd64.tar.gz | tar xz
+curl -L https://github.com/thanhdevapp/mac-dev-cleaner-cli/releases/download/v1.0.0/dev-cleaner_1.0.0_darwin_amd64.tar.gz | tar xz
 sudo mv dev-cleaner /usr/local/bin/
 ```
 
 **Linux (ARM64):**
 ```bash
-curl -L https://github.com/thanhdevapp/mac-dev-cleaner-cli/releases/latest/download/dev-cleaner_linux_arm64.tar.gz | tar xz
+curl -L https://github.com/thanhdevapp/mac-dev-cleaner-cli/releases/download/v1.0.0/dev-cleaner_1.0.0_linux_arm64.tar.gz | tar xz
 sudo mv dev-cleaner /usr/local/bin/
 ```
 
 **Linux (x86_64):**
 ```bash
-curl -L https://github.com/thanhdevapp/mac-dev-cleaner-cli/releases/latest/download/dev-cleaner_linux_amd64.tar.gz | tar xz
+curl -L https://github.com/thanhdevapp/mac-dev-cleaner-cli/releases/download/v1.0.0/dev-cleaner_1.0.0_linux_amd64.tar.gz | tar xz
 sudo mv dev-cleaner /usr/local/bin/
 ```
 
