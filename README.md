@@ -26,7 +26,7 @@ Mac Dev Cleaner is a CLI tool that helps developers reclaim disk space by removi
 
 ## 📸 Screenshot
 
-![Mac Dev Cleaner TUI](screens.png)
+![Mac Dev Cleaner TUI](screen1.png)
 
 *Interactive TUI showing cleanable items with sizes and multi-select checkboxes*
 
