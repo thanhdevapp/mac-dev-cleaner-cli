@@ -3,6 +3,7 @@
 > 🧹 Clean development artifacts on macOS - free up disk space fast!
 
 [![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat-square&logo=go)](https://golang.org/)
+[![Release](https://img.shields.io/github/v/release/thanhdevapp/mac-dev-cleaner-cli?style=flat-square)](https://github.com/thanhdevapp/mac-dev-cleaner-cli/releases)
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
 
 ## Overview
@@ -13,20 +14,65 @@ Mac Dev Cleaner is a CLI tool that helps developers reclaim disk space by removi
 - **Android** - Gradle caches, SDK caches
 - **Node.js** - node_modules, npm/yarn/pnpm/bun caches
 
+## ✨ Features
+
+- 🎯 **Smart Scanning** - Automatically detects development artifacts
+- 🎨 **Interactive TUI** - NCDU-style tree navigation with keyboard shortcuts
+- 🔒 **Safe by Default** - Dry-run mode prevents accidental deletions
+- ✅ **Multi-select** - Choose exactly what to delete with checkboxes
+- 🚀 **Fast & Efficient** - Scans thousands of directories in seconds
+- 📦 **Single Binary** - No dependencies, just download and run
+- 🌍 **Cross-platform** - Works on macOS and Linux (Intel & ARM64)
+
 ## Installation
 
-### Homebrew (Coming Soon)
+### Homebrew (Recommended)
 
 ```bash
 brew tap thanhdevapp/tools
 brew install dev-cleaner
 ```
 
+### Direct Download
+
+Download the latest release for your platform:
+
+**macOS (Apple Silicon):**
+```bash
+curl -L https://github.com/thanhdevapp/mac-dev-cleaner-cli/releases/latest/download/dev-cleaner_darwin_arm64.tar.gz | tar xz
+sudo mv dev-cleaner /usr/local/bin/
+```
+
+**macOS (Intel):**
+```bash
+curl -L https://github.com/thanhdevapp/mac-dev-cleaner-cli/releases/latest/download/dev-cleaner_darwin_amd64.tar.gz | tar xz
+sudo mv dev-cleaner /usr/local/bin/
+```
+
+**Linux (ARM64):**
+```bash
+curl -L https://github.com/thanhdevapp/mac-dev-cleaner-cli/releases/latest/download/dev-cleaner_linux_arm64.tar.gz | tar xz
+sudo mv dev-cleaner /usr/local/bin/
+```
+
+**Linux (x86_64):**
+```bash
+curl -L https://github.com/thanhdevapp/mac-dev-cleaner-cli/releases/latest/download/dev-cleaner_linux_amd64.tar.gz | tar xz
+sudo mv dev-cleaner /usr/local/bin/
+```
+
+### Verify Installation
+
+```bash
+dev-cleaner --version
+# Output: dev-cleaner version 1.0.0
+```
+
 ### From Source
 
 ```bash
-git clone https://github.com/thanhdevapp/dev-cleaner.git
-cd dev-cleaner
+git clone https://github.com/thanhdevapp/mac-dev-cleaner-cli.git
+cd mac-dev-cleaner-cli
 go build -o dev-cleaner .
 sudo mv dev-cleaner /usr/local/bin/
 ```
@@ -117,11 +163,20 @@ go test ./...
 
 ## Roadmap
 
+### Completed ✅
 - [x] MVP: Scan and clean commands
-- [ ] TUI with interactive selection (BubbleTea)
-- [ ] Config file support
-- [ ] Homebrew distribution
-- [ ] Progress bars
+- [x] TUI with interactive selection (Bubble Tea)
+- [x] NCDU-style tree navigation
+- [x] Homebrew distribution
+- [x] Cross-platform support (macOS, Linux)
+- [x] Multi-platform binaries (Intel, ARM64)
+
+### Planned 🚀
+- [ ] Config file support (~/.dev-cleaner.yaml)
+- [ ] Progress bars for large operations
+- [ ] Wails GUI (v2.0.0)
+- [ ] Scheduled cleaning (cron integration)
+- [ ] Export reports (JSON/CSV)
 
 ## License
 
