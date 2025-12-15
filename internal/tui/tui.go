@@ -262,6 +262,24 @@ func NewModel(items []types.ScanResult, dryRun bool, version string) Model {
 		if typesSeen[types.TypeFlutter] {
 			categories = append(categories, "Flutter")
 		}
+		if typesSeen[types.TypePython] {
+			categories = append(categories, "Python")
+		}
+		if typesSeen[types.TypeRust] {
+			categories = append(categories, "Rust")
+		}
+		if typesSeen[types.TypeGo] {
+			categories = append(categories, "Go")
+		}
+		if typesSeen[types.TypeHomebrew] {
+			categories = append(categories, "Homebrew")
+		}
+		if typesSeen[types.TypeDocker] {
+			categories = append(categories, "Docker")
+		}
+		if typesSeen[types.TypeJava] {
+			categories = append(categories, "Java")
+		}
 	}
 
 	// Start in scanning state if we have items
@@ -699,13 +717,7 @@ func (m Model) rescanItems() tea.Cmd {
 			return rescanItemsMsg{err: err}
 		}
 
-		opts := types.ScanOptions{
-			MaxDepth:       3,
-			IncludeXcode:   true,
-			IncludeAndroid: true,
-			IncludeNode:    true,
-			IncludeFlutter: true,
-		}
+		opts := types.DefaultScanOptions()
 
 		results, err := s.ScanAll(opts)
 		if err != nil {
@@ -1503,6 +1515,18 @@ func (m Model) getTypeBadge(t types.CleanTargetType) string {
 		return style.Foreground(lipgloss.Color("#68A063")).Render(string(t))
 	case types.TypeFlutter:
 		return style.Foreground(lipgloss.Color("#02569B")).Render(string(t))
+	case types.TypePython:
+		return style.Foreground(lipgloss.Color("#3776AB")).Render(string(t)) // Python blue
+	case types.TypeRust:
+		return style.Foreground(lipgloss.Color("#DEA584")).Render(string(t)) // Rust orange
+	case types.TypeGo:
+		return style.Foreground(lipgloss.Color("#00ADD8")).Render(string(t)) // Go cyan
+	case types.TypeHomebrew:
+		return style.Foreground(lipgloss.Color("#FBB040")).Render(string(t)) // Homebrew yellow
+	case types.TypeDocker:
+		return style.Foreground(lipgloss.Color("#2496ED")).Render(string(t)) // Docker blue
+	case types.TypeJava:
+		return style.Foreground(lipgloss.Color("#ED8B00")).Render(string(t)) // Java orange
 	default:
 		return style.Render(string(t))
 	}

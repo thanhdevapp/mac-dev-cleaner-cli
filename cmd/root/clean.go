@@ -16,13 +16,19 @@ import (
 )
 
 var (
-	dryRun       bool
-	confirmFlag  bool
-	cleanIOS     bool
-	cleanAndroid bool
-	cleanNode    bool
-	cleanFlutter bool
-	useTUI       bool
+	dryRun        bool
+	confirmFlag   bool
+	cleanIOS      bool
+	cleanAndroid  bool
+	cleanNode     bool
+	cleanFlutter  bool
+	cleanPython   bool
+	cleanRust     bool
+	cleanGo       bool
+	cleanHomebrew bool
+	cleanDocker   bool
+	cleanJava     bool
+	useTUI        bool
 )
 
 // cleanCmd represents the clean command
@@ -60,6 +66,12 @@ Flags:
   --android         Clean Android/Gradle artifacts only
   --node            Clean Node.js artifacts only
   --flutter         Clean Flutter/Dart artifacts only
+  --python          Clean Python caches
+  --rust            Clean Rust/Cargo caches
+  --go              Clean Go caches
+  --homebrew        Clean Homebrew caches
+  --docker          Clean Docker images, containers, volumes
+  --java            Clean Maven/Gradle caches
   --no-tui, -T      Disable TUI, use simple text mode
   --tui             Use interactive TUI mode (default: true)
 
@@ -87,6 +99,12 @@ func init() {
 	cleanCmd.Flags().BoolVar(&cleanAndroid, "android", false, "Clean Android/Gradle artifacts only")
 	cleanCmd.Flags().BoolVar(&cleanNode, "node", false, "Clean Node.js artifacts only")
 	cleanCmd.Flags().BoolVar(&cleanFlutter, "flutter", false, "Clean Flutter/Dart artifacts only")
+	cleanCmd.Flags().BoolVar(&cleanPython, "python", false, "Clean Python caches")
+	cleanCmd.Flags().BoolVar(&cleanRust, "rust", false, "Clean Rust/Cargo caches")
+	cleanCmd.Flags().BoolVar(&cleanGo, "go", false, "Clean Go caches")
+	cleanCmd.Flags().BoolVar(&cleanHomebrew, "homebrew", false, "Clean Homebrew caches")
+	cleanCmd.Flags().BoolVar(&cleanDocker, "docker", false, "Clean Docker images, containers, volumes")
+	cleanCmd.Flags().BoolVar(&cleanJava, "java", false, "Clean Maven/Gradle caches")
 	cleanCmd.Flags().BoolVar(&useTUI, "tui", true, "Use interactive TUI mode (default)")
 	cleanCmd.Flags().BoolP("no-tui", "T", false, "Disable TUI, use simple text mode")
 }
@@ -114,16 +132,23 @@ func runClean(cmd *cobra.Command, args []string) {
 		MaxDepth: 3,
 	}
 
-	if cleanIOS || cleanAndroid || cleanNode || cleanFlutter {
+	specificFlagSet := cleanIOS || cleanAndroid || cleanNode || cleanFlutter ||
+		cleanPython || cleanRust || cleanGo || cleanHomebrew ||
+		cleanDocker || cleanJava
+
+	if specificFlagSet {
 		opts.IncludeXcode = cleanIOS
 		opts.IncludeAndroid = cleanAndroid
 		opts.IncludeNode = cleanNode
 		opts.IncludeFlutter = cleanFlutter
+		opts.IncludePython = cleanPython
+		opts.IncludeRust = cleanRust
+		opts.IncludeGo = cleanGo
+		opts.IncludeHomebrew = cleanHomebrew
+		opts.IncludeDocker = cleanDocker
+		opts.IncludeJava = cleanJava
 	} else {
-		opts.IncludeXcode = true
-		opts.IncludeAndroid = true
-		opts.IncludeNode = true
-		opts.IncludeFlutter = true
+		opts = types.DefaultScanOptions()
 	}
 
 	ui.PrintHeader("Scanning for development artifacts...")

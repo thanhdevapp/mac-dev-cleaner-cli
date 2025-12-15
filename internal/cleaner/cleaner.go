@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/thanhdevapp/dev-cleaner/pkg/types"
@@ -72,6 +74,13 @@ func (c *Cleaner) Clean(results []types.ScanResult) ([]CleanResult, error) {
 	var cleanResults []CleanResult
 
 	for _, result := range results {
+		// Handle Docker paths specially
+		if strings.HasPrefix(result.Path, "docker:") {
+			cleanResult := c.cleanDocker(result)
+			cleanResults = append(cleanResults, cleanResult)
+			continue
+		}
+
 		// Validate path safety
 		if err := ValidatePath(result.Path); err != nil {
 			cleanResults = append(cleanResults, CleanResult{
@@ -93,7 +102,7 @@ func (c *Cleaner) Clean(results []types.ScanResult) ([]CleanResult, error) {
 			})
 		} else {
 			c.logger.Printf("[DELETE] Removing: %s (%.2f MB)\n", result.Path, float64(result.Size)/(1024*1024))
-			
+
 			if err := os.RemoveAll(result.Path); err != nil {
 				c.logger.Printf("[ERROR] Failed to delete %s: %v\n", result.Path, err)
 				cleanResults = append(cleanResults, CleanResult{
@@ -114,6 +123,59 @@ func (c *Cleaner) Clean(results []types.ScanResult) ([]CleanResult, error) {
 	}
 
 	return cleanResults, nil
+}
+
+// cleanDocker handles Docker resource cleanup via CLI
+func (c *Cleaner) cleanDocker(result types.ScanResult) CleanResult {
+	resourceType := strings.TrimPrefix(result.Path, "docker:")
+
+	if c.dryRun {
+		c.logger.Printf("[DRY-RUN] Would clean Docker %s (%.2f MB)\n", resourceType, float64(result.Size)/(1024*1024))
+		return CleanResult{
+			Path:      result.Path,
+			Size:      result.Size,
+			Success:   true,
+			WasDryRun: true,
+		}
+	}
+
+	var cmd *exec.Cmd
+	switch resourceType {
+	case "images":
+		cmd = exec.Command("docker", "image", "prune", "-a", "-f")
+	case "containers":
+		cmd = exec.Command("docker", "container", "prune", "-f")
+	case "local-volumes":
+		cmd = exec.Command("docker", "volume", "prune", "-f")
+	case "build-cache":
+		cmd = exec.Command("docker", "builder", "prune", "-a", "-f")
+	default:
+		return CleanResult{
+			Path:    result.Path,
+			Size:    result.Size,
+			Success: false,
+			Error:   fmt.Errorf("unknown docker resource type: %s", resourceType),
+		}
+	}
+
+	c.logger.Printf("[DELETE] Running: %s\n", strings.Join(cmd.Args, " "))
+
+	if err := cmd.Run(); err != nil {
+		c.logger.Printf("[ERROR] Docker cleanup failed: %v\n", err)
+		return CleanResult{
+			Path:    result.Path,
+			Size:    result.Size,
+			Success: false,
+			Error:   err,
+		}
+	}
+
+	c.logger.Printf("[SUCCESS] Docker %s cleaned at %s\n", resourceType, time.Now().Format(time.RFC3339))
+	return CleanResult{
+		Path:    result.Path,
+		Size:    result.Size,
+		Success: true,
+	}
 }
 
 // TotalSize calculates total size from results
