@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/thanhdevapp/dev-cleaner/internal/cleaner"
 	"github.com/thanhdevapp/dev-cleaner/internal/scanner"
+	"github.com/thanhdevapp/dev-cleaner/internal/tui"
 	"github.com/thanhdevapp/dev-cleaner/internal/ui"
 	"github.com/thanhdevapp/dev-cleaner/pkg/types"
 )
@@ -20,6 +21,7 @@ var (
 	cleanIOS     bool
 	cleanAndroid bool
 	cleanNode    bool
+	useTUI       bool
 )
 
 // cleanCmd represents the clean command
@@ -28,14 +30,14 @@ var cleanCmd = &cobra.Command{
 	Short: "Clean development artifacts",
 	Long: `Interactively select and clean development artifacts.
 
-By default, runs in dry-run mode (preview only).
-Use --confirm to actually delete files.
+By default, runs in TUI mode with interactive selection.
+Use --confirm to actually delete files (default is dry-run).
 
 Examples:
-  dev-cleaner clean              # Interactive selection (dry-run)
-  dev-cleaner clean --confirm    # Actually delete selected items
-  dev-cleaner clean --ios        # Clean iOS artifacts only
-  dev-cleaner clean --dry-run    # Preview what would be deleted`,
+  dev-cleaner clean              # Interactive TUI (dry-run)
+  dev-cleaner clean --confirm    # Interactive TUI (actually delete)
+  dev-cleaner clean --no-tui     # Simple text mode
+  dev-cleaner clean --ios        # Clean iOS artifacts only`,
 	Run: runClean,
 }
 
@@ -47,12 +49,20 @@ func init() {
 	cleanCmd.Flags().BoolVar(&cleanIOS, "ios", false, "Clean iOS/Xcode artifacts only")
 	cleanCmd.Flags().BoolVar(&cleanAndroid, "android", false, "Clean Android/Gradle artifacts only")
 	cleanCmd.Flags().BoolVar(&cleanNode, "node", false, "Clean Node.js artifacts only")
+	cleanCmd.Flags().BoolVar(&useTUI, "tui", true, "Use interactive TUI mode (default)")
+	cleanCmd.Flags().BoolP("no-tui", "T", false, "Disable TUI, use simple text mode")
 }
 
 func runClean(cmd *cobra.Command, args []string) {
 	// If --confirm is set, disable dry-run
 	if confirmFlag {
 		dryRun = false
+	}
+
+	// Check for --no-tui flag
+	noTUI, _ := cmd.Flags().GetBool("no-tui")
+	if noTUI {
+		useTUI = false
 	}
 
 	s, err := scanner.New()
@@ -92,6 +102,18 @@ func runClean(cmd *cobra.Command, args []string) {
 	// Sort by size
 	sortBySize(results)
 
+	// Use TUI or simple mode
+	if useTUI {
+		if err := tui.Run(results, dryRun); err != nil {
+			fmt.Fprintf(os.Stderr, "TUI error: %v\n", err)
+			os.Exit(1)
+		}
+	} else {
+		runSimpleMode(results)
+	}
+}
+
+func runSimpleMode(results []types.ScanResult) {
 	// Print results with enhanced UI
 	ui.PrintResults(results)
 	ui.PrintSummary(results)
