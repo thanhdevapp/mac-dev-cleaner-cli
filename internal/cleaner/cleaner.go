@@ -53,6 +53,11 @@ func (c *Cleaner) SetDryRun(dryRun bool) {
 	c.dryRun = dryRun
 }
 
+// Logger returns the cleaner's logger instance
+func (c *Cleaner) Logger() *log.Logger {
+	return c.logger
+}
+
 // CleanResult represents the result of a clean operation
 type CleanResult struct {
 	Path        string

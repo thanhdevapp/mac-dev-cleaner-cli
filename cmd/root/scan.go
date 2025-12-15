@@ -22,17 +22,43 @@ var (
 
 // scanCmd represents the scan command
 var scanCmd = &cobra.Command{
-	Use:   "scan",
+	Use:   "scan [flags]",
 	Short: "Scan for development artifacts",
 	Long: `Scan your system for development artifacts that can be cleaned.
 
-By default, opens interactive TUI for selection.
-Use --no-tui for simple text output.
+By default, scans all supported categories and opens interactive TUI
+for browsing, selection, and cleanup. The TUI provides tree navigation,
+keyboard shortcuts, and real-time deletion progress.
+
+Categories Scanned:
+  • Xcode (DerivedData, Archives, CoreSimulator, CocoaPods)
+  • Android (Gradle caches, SDK system images)
+  • Node.js (node_modules, npm/yarn/pnpm/bun caches)
+  • Flutter (build artifacts, .pub-cache, .dart_tool)
 
 Examples:
-  dev-cleaner scan              # Scan + TUI (default)
-  dev-cleaner scan --no-tui     # Scan + text output
-  dev-cleaner scan --ios        # Scan iOS/Xcode only`,
+  dev-cleaner scan                    # Scan all, launch TUI (default)
+  dev-cleaner scan --ios              # Scan iOS/Xcode only
+  dev-cleaner scan --android          # Scan Android only
+  dev-cleaner scan --node             # Scan Node.js only
+  dev-cleaner scan --flutter          # Scan Flutter only
+  dev-cleaner scan --no-tui           # Text output without TUI
+
+Flags:
+  --ios             Scan iOS/Xcode artifacts only
+  --android         Scan Android/Gradle artifacts only
+  --node            Scan Node.js artifacts only
+  --flutter         Scan Flutter/Dart artifacts only
+  --no-tui, -T      Disable TUI, show simple text output
+  --all             Scan all categories (default: true)
+
+TUI Features:
+  • Navigate with arrow keys or vim bindings (k/j/h/l)
+  • Select items with Space, 'a' for all, 'n' for none
+  • Quick clean single item with 'c'
+  • Batch clean selected items with Enter
+  • Drill down into folders with → or 'l'
+  • Press '?' for detailed help`,
 	Run: runScan,
 }
 

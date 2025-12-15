@@ -3,6 +3,7 @@ package tui
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -27,7 +28,29 @@ const (
 	StateDeleting                // Actively deleting items
 	StateDone                    // Operation complete
 	StateTree                    // Tree navigation view
+	StateHelp                    // Help screen
 )
+
+// treeState saves tree navigation state for restoration
+type treeState struct {
+	parentNode *types.TreeNode
+	nodeStack  []*types.TreeNode
+	cursorPos  int
+}
+
+// Tips array - shown randomly to help users
+var tips = []string{
+	"💡 Tip: Press 'c' to quickly clean the current item without selecting it first",
+	"💡 Tip: Use 'a' to select all items, 'n' to deselect all",
+	"💡 Tip: Press '→' or 'l' to drill down into folders and explore their contents",
+	"💡 Tip: In tree mode, press '←' or 'h' to go back to parent folder",
+	"💡 Tip: Dry-run mode is active by default - your files are safe until you confirm",
+	"💡 Tip: Press '?' anytime to see detailed help and keyboard shortcuts",
+	"💡 Tip: Use Space to toggle individual items, Enter to clean all selected",
+	"💡 Tip: In tree mode, 'c' lets you delete folders at any level",
+	"💡 Tip: All deletion operations are logged to ~/.dev-cleaner.log",
+	"💡 Tip: Press 'Esc' in tree mode to return to main list",
+}
 
 // Styles
 var (
@@ -89,13 +112,15 @@ var (
 
 // KeyMap defines the key bindings
 type KeyMap struct {
-	Up      key.Binding
-	Down    key.Binding
-	Toggle  key.Binding
-	All     key.Binding
-	None    key.Binding
-	Confirm key.Binding
-	Quit    key.Binding
+	Up         key.Binding
+	Down       key.Binding
+	Toggle     key.Binding
+	All        key.Binding
+	None       key.Binding
+	Confirm    key.Binding
+	QuickClean key.Binding // Quick select current + confirm
+	Help       key.Binding // Show help screen
+	Quit       key.Binding
 	// Tree navigation keys
 	DrillDown key.Binding
 	GoBack    key.Binding
@@ -127,6 +152,14 @@ var keys = KeyMap{
 	Confirm: key.NewBinding(
 		key.WithKeys("enter"),
 		key.WithHelp("enter", "clean selected"),
+	),
+	QuickClean: key.NewBinding(
+		key.WithKeys("c"),
+		key.WithHelp("c", "select & clean"),
+	),
+	Help: key.NewBinding(
+		key.WithKeys("?"),
+		key.WithHelp("?", "help"),
 	),
 	Quit: key.NewBinding(
 		key.WithKeys("q", "ctrl+c"),
@@ -171,13 +204,15 @@ type Model struct {
 	percent  float64
 
 	// Tree navigation state
-	treeMode     bool              // True when in tree view
-	currentNode  *types.TreeNode   // Current tree node
-	nodeStack    []*types.TreeNode // Breadcrumb trail
-	cursorStack  []int             // Cursor positions for each level
-	maxDepth     int               // Max depth limit
-	treeSelected map[string]bool   // Selected items in tree
-	scanning     bool              // True while scanning
+	treeMode       bool              // True when in tree view
+	currentNode    *types.TreeNode   // Current tree node
+	nodeStack      []*types.TreeNode // Breadcrumb trail
+	cursorStack    []int             // Cursor positions for each level
+	maxDepth       int               // Max depth limit
+	treeSelected   map[string]bool   // Selected items in tree
+	scanning       bool              // True while scanning
+	returnToTree   bool              // True if should return to tree after deletion
+	savedTreeState *treeState        // Saved tree state for restoration
 
 	// Time tracking
 	startTime   time.Time // Session start time
@@ -187,6 +222,16 @@ type Model struct {
 	scanningCategories []string // Categories being scanned
 	scanComplete       map[string]bool // Which categories are complete
 	currentScanning    int // Index of currently scanning category
+
+	// Deletion progress
+	deletingItems    []types.ScanResult    // Items being deleted
+	deleteComplete   map[int]bool          // Which items are complete
+	deleteStatus     map[int]string        // Status for each item (success/error)
+	currentDeleting  int                   // Index of currently deleting item
+
+	// Help and tips
+	currentTip string // Current random tip to display
+	showHelp   bool   // Whether to show help screen
 }
 
 // NewModel creates a new TUI model
@@ -225,6 +270,9 @@ func NewModel(items []types.ScanResult, dryRun bool, version string) Model {
 		initialState = StateScanning
 	}
 
+	// Pick a random tip
+	randomTip := tips[time.Now().UnixNano()%int64(len(tips))]
+
 	return Model{
 		state:              initialState,
 		items:              items,
@@ -245,6 +293,14 @@ func NewModel(items []types.ScanResult, dryRun bool, version string) Model {
 		scanningCategories: categories,
 		scanComplete:       make(map[string]bool),
 		currentScanning:    0,
+		// Deletion progress
+		deletingItems:   []types.ScanResult{},
+		deleteComplete:  make(map[int]bool),
+		deleteStatus:    make(map[int]string),
+		currentDeleting: 0,
+		// Help and tips
+		currentTip: randomTip,
+		showHelp:   false,
 	}
 }
 
@@ -284,12 +340,29 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Handle based on current state
 		switch m.state {
 		case StateDone:
-			// 'q' to quit, any other key to rescan and continue
+			// 'q' to quit, any other key to rescan/return to tree
 			if msg.String() == "q" || msg.String() == "ctrl+c" {
 				m.quitting = true
 				return m, tea.Quit
 			}
-			// Rescan and return to selection
+
+			// Check if we should return to tree mode
+			if m.returnToTree && m.savedTreeState != nil {
+				// Restore tree state
+				m.state = StateTree
+				m.treeMode = true
+				m.currentNode = m.savedTreeState.parentNode
+				m.nodeStack = m.savedTreeState.nodeStack
+				m.cursor = 0 // Reset cursor to top
+				m.scanning = true
+				m.returnToTree = false
+				m.savedTreeState = nil
+
+				// Rescan current node to refresh after deletion
+				return m, m.rescanNode(m.currentNode)
+			}
+
+			// Normal rescan and return to selection
 			return m, m.rescanItems()
 
 		case StateConfirming:
@@ -298,8 +371,41 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.state = StateDeleting
 				m.percent = 0
 				m.deleteStart = time.Now()
-				return m, tea.Batch(m.performClean(), m.progress.SetPercent(0))
+
+				// Prepare deletion list
+				m.deletingItems = []types.ScanResult{}
+				for i, item := range m.items {
+					if m.selected[i] {
+						m.deletingItems = append(m.deletingItems, item)
+					}
+				}
+				m.deleteComplete = make(map[int]bool)
+				m.deleteStatus = make(map[int]string)
+				m.currentDeleting = 0
+
+				// Debug: Print to stderr
+				fmt.Fprintf(os.Stderr, "[DEBUG] Starting deletion of %d items\n", len(m.deletingItems))
+
+				// Start deletion with spinner and progress updates
+				return m, tea.Batch(
+					m.spinner.Tick,
+					m.progress.SetPercent(0),
+					m.performClean(),
+				)
 			case "n", "N", "esc":
+				// Check if we came from tree mode
+				if m.returnToTree && m.savedTreeState != nil {
+					// Return to tree mode
+					m.state = StateTree
+					m.treeMode = true
+					m.currentNode = m.savedTreeState.parentNode
+					m.nodeStack = m.savedTreeState.nodeStack
+					m.cursor = m.savedTreeState.cursorPos
+					m.returnToTree = false
+					m.savedTreeState = nil
+					return m, nil
+				}
+				// Normal return to selection
 				m.state = StateSelecting
 				return m, nil
 			}
@@ -313,11 +419,20 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 
+		case StateHelp:
+			// Any key to exit help
+			m.state = StateSelecting
+			return m, nil
+
 		case StateSelecting:
 			switch {
 			case key.Matches(msg, keys.Quit):
 				m.quitting = true
 				return m, tea.Quit
+
+			case key.Matches(msg, keys.Help):
+				m.state = StateHelp
+				return m, nil
 
 			case key.Matches(msg, keys.Up):
 				if m.cursor > 0 {
@@ -346,6 +461,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return m, nil
 				}
 
+			case key.Matches(msg, keys.QuickClean):
+				// Quick clean ONLY current item (clear all other selections)
+				if m.cursor < len(m.items) {
+					// Clear all previous selections
+					m.selected = make(map[int]bool)
+					// Select ONLY current item
+					m.selected[m.cursor] = true
+					// Go to confirmation
+					m.state = StateConfirming
+					return m, nil
+				}
+
 			case key.Matches(msg, keys.DrillDown):
 				// Enter tree mode for current item
 				if m.cursor < len(m.items) {
@@ -361,6 +488,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case key.Matches(msg, keys.Quit):
 				m.quitting = true
 				return m, tea.Quit
+
+			case key.Matches(msg, keys.Help):
+				m.state = StateHelp
+				return m, nil
 
 			case key.Matches(msg, keys.ExitTree):
 				m.exitTreeMode()
@@ -399,8 +530,69 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						m.treeSelected[child.Path] = !m.treeSelected[child.Path]
 					}
 				}
+
+			case key.Matches(msg, keys.QuickClean):
+				// Delete current item at current level (like normal file managers)
+				if m.currentNode != nil && m.currentNode.HasChildren() {
+					if m.cursor < len(m.currentNode.Children) {
+						child := m.currentNode.Children[m.cursor]
+
+						// Create a single-item deletion
+						m.deletingItems = []types.ScanResult{{
+							Path:      child.Path,
+							Type:      types.TypeNode,
+							Size:      child.Size,
+							FileCount: child.FileCount,
+							Name:      child.Name,
+						}}
+
+						// Setup deletion state
+						m.deleteComplete = make(map[int]bool)
+						m.deleteStatus = make(map[int]string)
+						m.currentDeleting = 0
+						m.selected = map[int]bool{0: true}
+
+						// Save tree state to return after deletion
+						m.returnToTree = true
+						m.savedTreeState = &treeState{
+							parentNode: m.currentNode,
+							nodeStack:  m.nodeStack,
+							cursorPos:  m.cursor,
+						}
+
+						m.state = StateConfirming
+						return m, nil
+					}
+				}
 			}
 		}
+
+	case deleteItemProgressMsg:
+		// Debug
+		fmt.Fprintf(os.Stderr, "[DEBUG] Item %d completed with status: %s\n", msg.index, msg.status)
+
+		// Update item status
+		m.deleteComplete[msg.index] = true
+		if msg.status == "error" {
+			m.deleteStatus[msg.index] = "error"
+		} else {
+			m.deleteStatus[msg.index] = "success"
+		}
+
+		// Update progress
+		m.currentDeleting++
+		if len(m.deletingItems) > 0 {
+			m.percent = float64(m.currentDeleting) / float64(len(m.deletingItems))
+		}
+
+		fmt.Fprintf(os.Stderr, "[DEBUG] Progress: %d/%d (%.0f%%)\n", m.currentDeleting, len(m.deletingItems), m.percent*100)
+
+		// Continue with next item or finish
+		return m, tea.Batch(
+			m.spinner.Tick,        // Keep spinner animating
+			m.progress.SetPercent(m.percent),
+			m.performClean(),      // Delete next item or finish
+		)
 
 	case cleanResultMsg:
 		m.state = StateDone
@@ -484,6 +676,13 @@ type rescanItemsMsg struct {
 
 // scanProgressMsg is sent to advance scanning animation
 type scanProgressMsg struct{}
+
+// deleteItemProgressMsg is sent when an item deletion starts/completes
+type deleteItemProgressMsg struct {
+	index   int
+	status  string // "start", "success", "error"
+	err     error
+}
 
 // tickScanning sends a message to advance scanning animation
 func (m Model) tickScanning() tea.Cmd {
@@ -645,24 +844,149 @@ func (m Model) rescanNode(node *types.TreeNode) tea.Cmd {
 	}
 }
 
-// performClean starts the cleaning process
+// prepareTreeDeletion converts tree selections to flat list and transitions to confirmation
+func (m *Model) prepareTreeDeletion() tea.Cmd {
+	// Collect selected items from tree
+	var selectedItems []types.ScanResult
+	for path, selected := range m.treeSelected {
+		if selected {
+			// Find the node in the tree
+			node := m.findNodeByPath(m.currentNode, path)
+			if node != nil {
+				selectedItems = append(selectedItems, types.ScanResult{
+					Path:      node.Path,
+					Type:      types.TypeNode, // Generic type for tree items
+					Size:      node.Size,
+					FileCount: node.FileCount,
+					Name:      node.Name,
+				})
+			}
+		}
+	}
+
+	// If we have selected items, prepare for deletion
+	if len(selectedItems) > 0 {
+		// Exit tree mode
+		m.state = StateConfirming
+		m.treeMode = false
+		m.currentNode = nil
+		m.nodeStack = make([]*types.TreeNode, 0)
+		m.scanning = false
+
+		// Replace items with tree selections for deletion
+		m.items = selectedItems
+		m.selected = make(map[int]bool)
+		// Mark all as selected
+		for i := range m.items {
+			m.selected[i] = true
+		}
+	}
+
+	return nil
+}
+
+// findNodeByPath recursively finds a node by path
+func (m Model) findNodeByPath(root *types.TreeNode, path string) *types.TreeNode {
+	if root == nil {
+		return nil
+	}
+	if root.Path == path {
+		return root
+	}
+	if root.HasChildren() {
+		for _, child := range root.Children {
+			if found := m.findNodeByPath(child, path); found != nil {
+				return found
+			}
+		}
+	}
+	return nil
+}
+
+// performClean deletes a single item and returns a command to continue
 func (m Model) performClean() tea.Cmd {
+	// Check if all items are processed
+	if m.currentDeleting >= len(m.deletingItems) {
+		fmt.Fprintf(os.Stderr, "[DEBUG] All items processed, finishing...\n")
+		// All done, collect results and finish
+		var results []cleaner.CleanResult
+		for i, item := range m.deletingItems {
+			success := m.deleteComplete[i] && m.deleteStatus[i] != "error"
+			var err error
+			if !success && m.deleteStatus[i] == "error" {
+				err = fmt.Errorf("deletion failed")
+			}
+			results = append(results, cleaner.CleanResult{
+				Path:      item.Path,
+				Size:      item.Size,
+				Success:   success,
+				Error:     err,
+				WasDryRun: m.dryRun,
+			})
+		}
+		return func() tea.Msg {
+			return cleanResultMsg{results: results, err: nil}
+		}
+	}
+
+	// Delete current item
+	idx := m.currentDeleting
+	item := m.deletingItems[idx]
+
+	fmt.Fprintf(os.Stderr, "[DEBUG] Starting deletion of item %d: %s\n", idx, item.Name)
+
 	return func() tea.Msg {
 		c, err := cleaner.New(m.dryRun)
 		if err != nil {
-			return cleanResultMsg{err: err}
+			return deleteItemProgressMsg{
+				index:  idx,
+				status: "error",
+				err:    err,
+			}
 		}
 		defer c.Close()
 
-		var toClean []types.ScanResult
-		for i, item := range m.items {
-			if m.selected[i] {
-				toClean = append(toClean, item)
+		// Validate path safety
+		if err := cleaner.ValidatePath(item.Path); err != nil {
+			return deleteItemProgressMsg{
+				index:  idx,
+				status: "error",
+				err:    err,
 			}
 		}
 
-		results, err := c.Clean(toClean)
-		return cleanResultMsg{results: results, err: err}
+		// Send start message first (for immediate UI update)
+		time.Sleep(200 * time.Millisecond) // Initial delay to show "deleting" state
+
+		// Perform deletion
+		if m.dryRun {
+			c.Logger().Printf("[DRY-RUN] Would delete: %s (%.2f MB)\n", item.Path, float64(item.Size)/(1024*1024))
+			// Longer delay for visual feedback in dry-run
+			time.Sleep(300 * time.Millisecond)
+			return deleteItemProgressMsg{
+				index:  idx,
+				status: "success",
+			}
+		} else {
+			c.Logger().Printf("[DELETE] Removing: %s (%.2f MB)\n", item.Path, float64(item.Size)/(1024*1024))
+
+			if err := os.RemoveAll(item.Path); err != nil {
+				c.Logger().Printf("[ERROR] Failed to delete %s: %v\n", item.Path, err)
+				return deleteItemProgressMsg{
+					index:  idx,
+					status: "error",
+					err:    err,
+				}
+			}
+
+			c.Logger().Printf("[SUCCESS] Deleted: %s at %s\n", item.Path, time.Now().Format(time.RFC3339))
+			// Delay to show success state
+			time.Sleep(200 * time.Millisecond)
+			return deleteItemProgressMsg{
+				index:  idx,
+				status: "success",
+			}
+		}
 	}
 }
 
@@ -692,17 +1016,16 @@ func (m Model) View() string {
 		content = m.renderResults(&b)
 
 	case StateDeleting:
-		b.WriteString("🗑️  Deleting selected items...\n\n")
-		b.WriteString(m.progress.View())
-		b.WriteString("\n\n")
-		b.WriteString(helpStyle.Render("Press q to cancel"))
-		content = b.String()
+		content = m.renderDeleting(&b)
 
 	case StateConfirming:
 		content = m.renderConfirmation(&b)
 
 	case StateTree:
 		content = m.renderTreeView(&b)
+
+	case StateHelp:
+		content = m.renderHelp(&b)
 
 	case StateSelecting:
 		content = m.renderSelection(&b)
@@ -832,7 +1155,7 @@ func (m Model) renderTreeView(b *strings.Builder) string {
 	}
 
 	// Help
-	help := "\n\n↑/↓: Navigate • →/l: Drill down • ←/h: Go back • r: Refresh • Space: Toggle • Esc: Exit • q: Quit"
+	help := "\n\n↑/↓: Navigate • →/l: Drill down • ←/h: Go back • Space: Toggle • c: Quick Clean Current • Esc: Exit • q: Quit"
 	b.WriteString(helpStyle.Render(help))
 
 	return b.String()
@@ -888,6 +1211,85 @@ func (m Model) countTreeSelected() int {
 		}
 	}
 	return count
+}
+
+// renderDeleting shows the deletion progress with package-manager style output
+func (m Model) renderDeleting(b *strings.Builder) string {
+	b.WriteString(statusStyle.Render("🗑️  Cleaning up development artifacts"))
+	b.WriteString("\n\n")
+
+	// Calculate progress
+	totalItems := len(m.deletingItems)
+	completedItems := 0
+	for _, complete := range m.deleteComplete {
+		if complete {
+			completedItems++
+		}
+	}
+
+	// Show progress bar
+	b.WriteString(m.progress.View())
+	b.WriteString("\n\n")
+
+	// Show items being deleted (package-manager style)
+	maxVisible := 8
+	startIdx := 0
+	if totalItems > maxVisible {
+		// Show last N items for scrolling effect
+		startIdx = totalItems - maxVisible
+		if completedItems < maxVisible {
+			startIdx = 0
+		} else {
+			startIdx = completedItems - maxVisible/2
+			if startIdx < 0 {
+				startIdx = 0
+			}
+			if startIdx+maxVisible > totalItems {
+				startIdx = totalItems - maxVisible
+			}
+		}
+	}
+
+	for i := startIdx; i < totalItems && i < startIdx+maxVisible; i++ {
+		item := m.deletingItems[i]
+		icon := "  "
+		itemStyle := lipgloss.NewStyle()
+
+		if m.deleteComplete[i] {
+			if m.deleteStatus[i] == "error" {
+				icon = "✗ "
+				itemStyle = errorStyle
+			} else {
+				icon = "✓ "
+				itemStyle = successStyle
+			}
+		} else if i == m.currentDeleting {
+			icon = m.spinner.View() + " "
+			itemStyle = statusStyle
+		} else {
+			icon = "○ "
+			itemStyle = helpStyle
+		}
+
+		line := fmt.Sprintf("%s %s  %s",
+			icon,
+			ui.FormatSize(item.Size),
+			item.Name,
+		)
+		b.WriteString(itemStyle.Render(line))
+		b.WriteString("\n")
+	}
+
+	// Summary
+	b.WriteString("\n")
+	summary := fmt.Sprintf("Progress: %d/%d items", completedItems, totalItems)
+	b.WriteString(helpStyle.Render(summary))
+
+	// Help
+	b.WriteString("\n\n")
+	b.WriteString(helpStyle.Render("Please wait... Press q to cancel"))
+
+	return b.String()
 }
 
 // renderConfirmation shows the confirmation dialog
@@ -970,10 +1372,88 @@ func (m Model) renderSelection(b *strings.Builder) string {
 	status := fmt.Sprintf("\n📊 Selected: %d items • %s", selectedCount, ui.FormatSize(selectedSize))
 	b.WriteString(statusStyle.Render(status))
 
+	// Show random tip
+	b.WriteString("\n\n")
+	tipStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#10B981")).
+		Italic(true)
+	b.WriteString(tipStyle.Render(m.currentTip))
+
 	// Help
-	help := "\n\n↑/↓: Navigate • Space: Toggle • a: All • n: None • Enter: Clean • q: Quit"
+	help := "\n\n↑/↓: Navigate • Space: Toggle • a: All • n: None • c: Quick Clean Current • Enter: Clean Selected • ?: Help • q: Quit"
 	b.WriteString(helpStyle.Render(help))
 
+	return b.String()
+}
+
+// renderHelp shows comprehensive help screen
+func (m Model) renderHelp(b *strings.Builder) string {
+	helpBoxStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("#7C3AED")).
+		Padding(1, 2).
+		Width(70)
+
+	headerStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#7C3AED")).
+		Bold(true).
+		Underline(true)
+
+	keyStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#F59E0B")).
+		Bold(true)
+
+	var help strings.Builder
+
+	help.WriteString(headerStyle.Render("🔍 Mac Dev Cleaner - Help & Keyboard Shortcuts"))
+	help.WriteString("\n\n")
+
+	// Main List Navigation
+	help.WriteString(headerStyle.Render("Main List Navigation"))
+	help.WriteString("\n")
+	help.WriteString(fmt.Sprintf("  %s        Move up/down\n", keyStyle.Render("↑/↓ or k/j")))
+	help.WriteString(fmt.Sprintf("  %s          Toggle selection\n", keyStyle.Render("Space")))
+	help.WriteString(fmt.Sprintf("  %s              Select all items\n", keyStyle.Render("a")))
+	help.WriteString(fmt.Sprintf("  %s              Deselect all items\n", keyStyle.Render("n")))
+	help.WriteString(fmt.Sprintf("  %s              Quick clean current item only\n", keyStyle.Render("c")))
+	help.WriteString(fmt.Sprintf("  %s          Clean all selected items\n", keyStyle.Render("Enter")))
+	help.WriteString(fmt.Sprintf("  %s        Drill down into folder (tree mode)\n", keyStyle.Render("→ or l")))
+	help.WriteString("\n")
+
+	// Tree Navigation
+	help.WriteString(headerStyle.Render("Tree Navigation Mode"))
+	help.WriteString("\n")
+	help.WriteString(fmt.Sprintf("  %s        Move up/down in current folder\n", keyStyle.Render("↑/↓ or k/j")))
+	help.WriteString(fmt.Sprintf("  %s        Drill deeper into subfolder\n", keyStyle.Render("→ or l")))
+	help.WriteString(fmt.Sprintf("  %s        Go back to parent folder\n", keyStyle.Render("← or h")))
+	help.WriteString(fmt.Sprintf("  %s          Toggle selection\n", keyStyle.Render("Space")))
+	help.WriteString(fmt.Sprintf("  %s              Quick clean current item\n", keyStyle.Render("c")))
+	help.WriteString(fmt.Sprintf("  %s              Refresh current folder\n", keyStyle.Render("r")))
+	help.WriteString(fmt.Sprintf("  %s            Exit tree mode\n", keyStyle.Render("Esc")))
+	help.WriteString("\n")
+
+	// Important Notes
+	help.WriteString(headerStyle.Render("Important Notes"))
+	help.WriteString("\n")
+	help.WriteString("  • 'c' key: Clears all selections and cleans ONLY current item\n")
+	help.WriteString("  • Enter: Cleans ALL selected items (batch operation)\n")
+	help.WriteString("  • Dry-run is ON by default - files are safe until confirmed\n")
+	help.WriteString("  • All deletions are logged to ~/.dev-cleaner.log\n")
+	help.WriteString("  • Tree mode: Delete items at any level, auto-refresh after\n")
+	help.WriteString("\n")
+
+	// Tips
+	help.WriteString(headerStyle.Render("Pro Tips"))
+	help.WriteString("\n")
+	help.WriteString("  ✨ Use 'c' for quick single-item cleanup\n")
+	help.WriteString("  ✨ Use Space+Enter for batch cleanup of multiple items\n")
+	help.WriteString("  ✨ Tree mode lets you explore and clean nested folders\n")
+	help.WriteString("  ✨ Press any key from completion screen to rescan\n")
+	help.WriteString("\n")
+
+	help.WriteString(helpStyle.Render("Press any key to return..."))
+
+	b.WriteString(helpBoxStyle.Render(help.String()))
 	return b.String()
 }
 
@@ -1086,8 +1566,6 @@ func (m Model) renderStatusBar() string {
 			center = "No items selected"
 		}
 
-		// Right: Key hints
-		right = "↑↓:nav space:toggle a:all n:none enter:clean q:quit"
 
 	case StateTree:
 		// Left: State + Current path
@@ -1110,7 +1588,7 @@ func (m Model) renderStatusBar() string {
 		}
 
 		// Right: Key hints
-		right = "→:drill ←:back r:refresh esc:exit q:quit"
+		right = "→:drill ←:back space:toggle c:quick esc:exit q:quit"
 
 	case StateConfirming:
 		// Left: State

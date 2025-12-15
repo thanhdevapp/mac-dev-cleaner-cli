@@ -27,18 +27,54 @@ var (
 
 // cleanCmd represents the clean command
 var cleanCmd = &cobra.Command{
-	Use:   "clean",
+	Use:   "clean [flags]",
 	Short: "Clean development artifacts",
 	Long: `Interactively select and clean development artifacts.
 
-By default, runs in TUI mode with interactive selection.
-Use --confirm to actually delete files (default is dry-run).
+By default, runs in TUI mode with interactive selection and dry-run
+enabled (preview only). Use --confirm to actually delete files.
+
+The TUI provides:
+  • Real-time deletion progress with package-manager style output
+  • Tree navigation for exploring nested folders
+  • Quick single-item cleanup or batch operations
+  • All operations logged to ~/.dev-cleaner.log
+
+Safety Features:
+  ✓ Dry-run mode by default (files are safe)
+  ✓ Confirmation required before deletion
+  ✓ Path validation (never touches system files)
+  ✓ All actions logged for audit trail
 
 Examples:
-  dev-cleaner clean              # Interactive TUI (dry-run)
-  dev-cleaner clean --confirm    # Interactive TUI (actually delete)
-  dev-cleaner clean --no-tui     # Simple text mode
-  dev-cleaner clean --ios        # Clean iOS artifacts only`,
+  dev-cleaner clean                   # Interactive TUI (dry-run)
+  dev-cleaner clean --confirm         # Interactive TUI (actually delete)
+  dev-cleaner clean --no-tui          # Simple text mode
+  dev-cleaner clean --ios --confirm   # Clean iOS artifacts only
+  dev-cleaner clean --node            # Preview Node.js cleanup (dry-run)
+
+Flags:
+  --confirm         Actually delete files (disables dry-run)
+  --dry-run         Preview only, don't delete (default: true)
+  --ios             Clean iOS/Xcode artifacts only
+  --android         Clean Android/Gradle artifacts only
+  --node            Clean Node.js artifacts only
+  --flutter         Clean Flutter/Dart artifacts only
+  --no-tui, -T      Disable TUI, use simple text mode
+  --tui             Use interactive TUI mode (default: true)
+
+TUI Keyboard Shortcuts:
+  c            Quick clean current item (ignores selections)
+  Enter        Clean all selected items (batch mode)
+  Space        Toggle selection
+  a/n          Select all / none
+  →/l          Enter tree mode (explore folders)
+  ?            Show help screen
+
+Important:
+  • 'c' clears all selections and cleans ONLY the current item
+  • 'Enter' cleans ALL selected items (batch operation)
+  • Tree mode allows deletion at any folder level`,
 	Run: runClean,
 }
 
