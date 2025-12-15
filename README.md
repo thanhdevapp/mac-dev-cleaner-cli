@@ -117,11 +117,60 @@ go test ./...
 
 ## Roadmap
 
+### Phase 1: Core Features (Current)
 - [x] MVP: Scan and clean commands
-- [ ] TUI with interactive selection (BubbleTea)
-- [ ] Config file support
+- [x] TUI with interactive selection (BubbleTea)
+- [ ] Config file support (`.dev-cleaner.yaml`)
 - [ ] Homebrew distribution
-- [ ] Progress bars
+- [ ] Progress bars with ETA
+
+### Phase 2: Extended Language Support
+- [ ] **Python** - `__pycache__`, `.pytest_cache`, `.mypy_cache`, pip cache
+- [ ] **Ruby** - gem cache, bundler cache
+- [ ] **Rust** - `target/` folders, cargo cache
+- [ ] **Go** - go build cache, go mod cache
+- [ ] **Docker** - unused images, containers, volumes
+- [ ] **Swift Package Manager** - SPM cache
+- [ ] **Maven** - `~/.m2/repository`
+- [ ] **Homebrew** - brew cache
+
+### Phase 3: Smart Features
+- [ ] **Statistics & History** - Track cleaned space over time
+  - `dev-cleaner stats` - View cleaning history
+  - `dev-cleaner history` - Show past operations
+  - `dev-cleaner top` - Top 10 space consumers
+- [ ] **Smart Detection** - Intelligent recommendations
+  - Detect unused projects (>6 months inactive)
+  - Auto-suggest cleaning when disk space is low
+  - Warning when disk < 10GB free
+- [ ] **Exclude/Whitelist System**
+  - Path exclusion rules
+  - Age-based cleaning policies
+  - Project importance tagging
+
+### Phase 4: Advanced Features
+- [ ] **Scheduled Cleaning**
+  - `dev-cleaner schedule weekly`
+  - Cron-style scheduling
+  - Background daemon mode
+- [ ] **Backup & Restore**
+  - Compress before delete option
+  - Restore point creation
+  - Undo last clean operation
+- [ ] **Analysis Tools**
+  - `dev-cleaner analyze` - Deep disk usage analysis
+  - Project activity detection
+  - Smart recommendations
+- [ ] **Multi-machine Sync** - Sync settings across Macs
+- [ ] **Web Dashboard** - Browser-based UI for management
+- [ ] **CI/CD Integration** - Clean build artifacts on runners
+
+### Phase 5: Polish
+- [ ] Notification system (macOS native)
+- [ ] Export/Import configurations
+- [ ] Interactive file browser with preview
+- [ ] Real-time speed indicators (MB/s)
+- [ ] Cloud backup integration
 
 ## License
 
