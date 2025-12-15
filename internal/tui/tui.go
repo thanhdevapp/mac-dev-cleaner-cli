@@ -1454,6 +1454,14 @@ func (m Model) renderHelp(b *strings.Builder) string {
 	help.WriteString("  • Tree mode: Delete items at any level, auto-refresh after\n")
 	help.WriteString("\n")
 
+	// Supported Ecosystems
+	help.WriteString(headerStyle.Render("Supported Ecosystems"))
+	help.WriteString("\n")
+	help.WriteString("  🍎 Xcode • 🤖 Android • 📦 Node.js • 🐦 Flutter\n")
+	help.WriteString("  🐍 Python • 🦀 Rust • 🐹 Go • 🍺 Homebrew\n")
+	help.WriteString("  🐳 Docker • ☕ Java/Kotlin\n")
+	help.WriteString("\n")
+
 	// Tips
 	help.WriteString(headerStyle.Render("Pro Tips"))
 	help.WriteString("\n")
@@ -1461,6 +1469,7 @@ func (m Model) renderHelp(b *strings.Builder) string {
 	help.WriteString("  ✨ Use Space+Enter for batch cleanup of multiple items\n")
 	help.WriteString("  ✨ Tree mode lets you explore and clean nested folders\n")
 	help.WriteString("  ✨ Press any key from completion screen to rescan\n")
+	help.WriteString("  ✨ Scans 10 ecosystems - can reclaim 30-100+ GB!\n")
 	help.WriteString("\n")
 
 	help.WriteString(helpStyle.Render("Press any key to return..."))
