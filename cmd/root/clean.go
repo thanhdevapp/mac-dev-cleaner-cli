@@ -108,7 +108,7 @@ func runClean(cmd *cobra.Command, args []string) {
 
 	// Use TUI or simple mode
 	if useTUI {
-		if err := tui.Run(results, dryRun); err != nil {
+		if err := tui.Run(results, dryRun, Version); err != nil {
 			fmt.Fprintf(os.Stderr, "TUI error: %v\n", err)
 			os.Exit(1)
 		}

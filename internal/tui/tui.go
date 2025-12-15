@@ -4,6 +4,7 @@ package tui
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/progress"
@@ -20,7 +21,8 @@ import (
 type State int
 
 const (
-	StateSelecting  State = iota // Viewing and selecting items
+	StateScanning   State = iota // Initial scanning animation
+	StateSelecting               // Viewing and selecting items
 	StateConfirming              // Showing confirmation dialog
 	StateDeleting                // Actively deleting items
 	StateDone                    // Operation complete
@@ -67,6 +69,22 @@ var (
 	errorStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#EF4444")).
 			Bold(true)
+
+	// Status bar styles
+	statusBarStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#FFFFFF")).
+			Background(lipgloss.Color("#374151")).
+			Padding(0, 1)
+
+	statusLeftStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#10B981")).
+			Bold(true)
+
+	statusCenterStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#F59E0B"))
+
+	statusRightStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#6B7280"))
 )
 
 // KeyMap defines the key bindings
@@ -142,6 +160,7 @@ type Model struct {
 	width    int
 	height   int
 	dryRun   bool
+	version  string // Application version
 	results  []cleaner.CleanResult
 	err      error
 	quitting bool
@@ -159,35 +178,82 @@ type Model struct {
 	maxDepth     int               // Max depth limit
 	treeSelected map[string]bool   // Selected items in tree
 	scanning     bool              // True while scanning
+
+	// Time tracking
+	startTime   time.Time // Session start time
+	deleteStart time.Time // Delete operation start time
+
+	// Scanning progress
+	scanningCategories []string // Categories being scanned
+	scanComplete       map[string]bool // Which categories are complete
+	currentScanning    int // Index of currently scanning category
 }
 
 // NewModel creates a new TUI model
-func NewModel(items []types.ScanResult, dryRun bool) Model {
+func NewModel(items []types.ScanResult, dryRun bool, version string) Model {
 	s := spinner.New()
 	s.Spinner = spinner.Dot
 	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("#7C3AED"))
 
 	p := progress.New(progress.WithDefaultGradient())
 
+	// Determine which categories to show in scanning animation
+	categories := []string{}
+	if len(items) > 0 {
+		// Check which types exist in results
+		typesSeen := make(map[types.CleanTargetType]bool)
+		for _, item := range items {
+			typesSeen[item.Type] = true
+		}
+		if typesSeen[types.TypeXcode] {
+			categories = append(categories, "Xcode")
+		}
+		if typesSeen[types.TypeAndroid] {
+			categories = append(categories, "Android")
+		}
+		if typesSeen[types.TypeNode] {
+			categories = append(categories, "Node.js")
+		}
+		if typesSeen[types.TypeFlutter] {
+			categories = append(categories, "Flutter")
+		}
+	}
+
+	// Start in scanning state if we have items
+	initialState := StateSelecting
+	if len(items) > 0 && len(categories) > 0 {
+		initialState = StateScanning
+	}
+
 	return Model{
-		state:    StateSelecting,
-		items:    items,
-		selected: make(map[int]bool),
-		dryRun:   dryRun,
-		spinner:  s,
-		progress: p,
+		state:              initialState,
+		items:              items,
+		selected:           make(map[int]bool),
+		dryRun:             dryRun,
+		version:            version,
+		spinner:            s,
+		progress:           p,
 		// Tree navigation
 		treeMode:     false,
 		nodeStack:    make([]*types.TreeNode, 0),
 		maxDepth:     5,
 		treeSelected: make(map[string]bool),
 		scanning:     false,
+		// Time tracking
+		startTime: time.Now(),
+		// Scanning animation
+		scanningCategories: categories,
+		scanComplete:       make(map[string]bool),
+		currentScanning:    0,
 	}
 }
 
 // Init implements tea.Model
 func (m Model) Init() tea.Cmd {
-	return nil
+	if m.state == StateScanning {
+		return tea.Batch(m.spinner.Tick, m.tickScanning())
+	}
+	return m.spinner.Tick
 }
 
 // Update implements tea.Model
@@ -231,6 +297,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "y", "Y":
 				m.state = StateDeleting
 				m.percent = 0
+				m.deleteStart = time.Now()
 				return m, tea.Batch(m.performClean(), m.progress.SetPercent(0))
 			case "n", "N", "esc":
 				m.state = StateSelecting
@@ -367,6 +434,26 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.results = nil
 		m.err = nil
 		return m, nil
+
+	case scanProgressMsg:
+		if m.state != StateScanning {
+			return m, nil
+		}
+
+		// Mark current category as complete
+		if m.currentScanning < len(m.scanningCategories) {
+			m.scanComplete[m.scanningCategories[m.currentScanning]] = true
+			m.currentScanning++
+		}
+
+		// If all categories scanned, transition to selecting
+		if m.currentScanning >= len(m.scanningCategories) {
+			m.state = StateSelecting
+			return m, nil
+		}
+
+		// Continue scanning animation
+		return m, m.tickScanning()
 	}
 
 	return m, nil
@@ -395,6 +482,16 @@ type rescanItemsMsg struct {
 	err   error
 }
 
+// scanProgressMsg is sent to advance scanning animation
+type scanProgressMsg struct{}
+
+// tickScanning sends a message to advance scanning animation
+func (m Model) tickScanning() tea.Cmd {
+	return tea.Tick(time.Millisecond*600, func(t time.Time) tea.Msg {
+		return scanProgressMsg{}
+	})
+}
+
 // rescanItems rescans all items and returns to selection
 func (m Model) rescanItems() tea.Cmd {
 	return func() tea.Msg {
@@ -408,6 +505,7 @@ func (m Model) rescanItems() tea.Cmd {
 			IncludeXcode:   true,
 			IncludeAndroid: true,
 			IncludeNode:    true,
+			IncludeFlutter: true,
 		}
 
 		results, err := s.ScanAll(opts)
@@ -576,8 +674,8 @@ func (m Model) View() string {
 
 	var b strings.Builder
 
-	// Title
-	title := "🧹 Mac Dev Cleaner"
+	// Title with version
+	title := fmt.Sprintf("🧹 Mac Dev Cleaner v%s", m.version)
 	if m.dryRun {
 		title += " [DRY-RUN]"
 	}
@@ -585,26 +683,73 @@ func (m Model) View() string {
 	b.WriteString("\n\n")
 
 	// Render based on current state
+	var content string
 	switch m.state {
+	case StateScanning:
+		content = m.renderScanning(&b)
+
 	case StateDone:
-		return m.renderResults(&b)
+		content = m.renderResults(&b)
 
 	case StateDeleting:
 		b.WriteString("🗑️  Deleting selected items...\n\n")
 		b.WriteString(m.progress.View())
 		b.WriteString("\n\n")
 		b.WriteString(helpStyle.Render("Press q to cancel"))
-		return b.String()
+		content = b.String()
 
 	case StateConfirming:
-		return m.renderConfirmation(&b)
+		content = m.renderConfirmation(&b)
 
 	case StateTree:
-		return m.renderTreeView(&b)
+		content = m.renderTreeView(&b)
 
 	case StateSelecting:
-		return m.renderSelection(&b)
+		content = m.renderSelection(&b)
+
+	default:
+		content = b.String()
 	}
+
+	// Add status bar at bottom
+	statusBar := m.renderStatusBar()
+	return content + "\n\n" + statusBar
+}
+
+// renderScanning renders the animated scanning progress
+func (m Model) renderScanning(b *strings.Builder) string {
+	b.WriteString(successStyle.Render("🔍 Scanning for development artifacts...\n\n"))
+
+	// Show each category with status
+	for i, category := range m.scanningCategories {
+		var status string
+		var icon string
+		var style lipgloss.Style
+
+		if m.scanComplete[category] {
+			// Completed
+			icon = "✓"
+			status = "Complete"
+			style = successStyle
+		} else if i == m.currentScanning {
+			// Currently scanning
+			icon = m.spinner.View()
+			status = "Scanning..."
+			style = statusStyle
+		} else {
+			// Pending
+			icon = "○"
+			status = "Pending"
+			style = helpStyle
+		}
+
+		line := fmt.Sprintf("  %s %s  %s", icon, category, status)
+		b.WriteString(style.Render(line))
+		b.WriteString("\n")
+	}
+
+	b.WriteString("\n")
+	b.WriteString(helpStyle.Render("Please wait while we scan your system..."))
 
 	return b.String()
 }
@@ -612,7 +757,11 @@ func (m Model) View() string {
 // renderTreeView renders the tree navigation view
 func (m Model) renderTreeView(b *strings.Builder) string {
 	if m.currentNode == nil {
-		b.WriteString(errorStyle.Render("No tree node selected"))
+		// Show loading animation while waiting for scan
+		loadingMsg := fmt.Sprintf("%s Loading directory tree...", m.spinner.View())
+		b.WriteString(statusStyle.Render(loadingMsg))
+		b.WriteString("\n\n")
+		b.WriteString(helpStyle.Render("Please wait while scanning directory structure..."))
 		return b.String()
 	}
 
@@ -872,6 +1021,8 @@ func (m Model) getTypeBadge(t types.CleanTargetType) string {
 		return style.Foreground(lipgloss.Color("#3DDC84")).Render(string(t))
 	case types.TypeNode:
 		return style.Foreground(lipgloss.Color("#68A063")).Render(string(t))
+	case types.TypeFlutter:
+		return style.Foreground(lipgloss.Color("#02569B")).Render(string(t))
 	default:
 		return style.Render(string(t))
 	}
@@ -897,9 +1048,156 @@ func (m Model) selectedSize() int64 {
 	return size
 }
 
+// renderStatusBar creates a unified status bar based on current state
+func (m Model) renderStatusBar() string {
+	var left, center, right string
+	elapsed := time.Since(m.startTime)
+
+	switch m.state {
+	case StateScanning:
+		// Left: State
+		left = "[SCANNING]"
+
+		// Center: Progress
+		if m.currentScanning < len(m.scanningCategories) {
+			current := m.scanningCategories[m.currentScanning]
+			center = fmt.Sprintf("Scanning %s... (%d/%d)", current, m.currentScanning+1, len(m.scanningCategories))
+		} else {
+			center = "Almost done..."
+		}
+
+		// Right: Elapsed
+		right = fmt.Sprintf("Elapsed: %ds", int(elapsed.Seconds()))
+
+	case StateSelecting:
+		// Left: State + Item count + Total size
+		totalSize := int64(0)
+		for _, item := range m.items {
+			totalSize += item.Size
+		}
+		left = fmt.Sprintf("[SELECT] %d items • %s", len(m.items), ui.FormatSize(totalSize))
+
+		// Center: Selected info
+		selectedCount := m.countSelected()
+		selectedSize := m.selectedSize()
+		if selectedCount > 0 {
+			center = fmt.Sprintf("Selected: %d/%d • %s", selectedCount, len(m.items), ui.FormatSize(selectedSize))
+		} else {
+			center = "No items selected"
+		}
+
+		// Right: Key hints
+		right = "↑↓:nav space:toggle a:all n:none enter:clean q:quit"
+
+	case StateTree:
+		// Left: State + Current path
+		if m.currentNode != nil {
+			left = fmt.Sprintf("[TREE] %s", m.currentNode.Name)
+
+			// Center: Folder info
+			center = fmt.Sprintf("%s • %d items", ui.FormatSize(m.currentNode.Size), m.currentNode.FileCount)
+			if m.scanning {
+				center += " • Scanning..."
+			}
+
+			// Depth indicator
+			if m.currentNode.Depth > 0 {
+				center += fmt.Sprintf(" • Depth: %d/%d", m.currentNode.Depth, m.maxDepth)
+			}
+		} else {
+			left = "[TREE]"
+			center = "Loading..."
+		}
+
+		// Right: Key hints
+		right = "→:drill ←:back r:refresh esc:exit q:quit"
+
+	case StateConfirming:
+		// Left: State
+		left = "[CONFIRM]"
+
+		// Center: Confirmation prompt
+		selectedCount := m.countSelected()
+		selectedSize := m.selectedSize()
+		center = fmt.Sprintf("Delete %d items (%s)?", selectedCount, ui.FormatSize(selectedSize))
+
+		// Right: Key hints
+		right = "y:yes n:no"
+
+	case StateDeleting:
+		// Left: State + Progress
+		left = fmt.Sprintf("[DELETE] Progress: %.0f%%", m.percent*100)
+
+		// Center: Items processed
+		selectedCount := m.countSelected()
+		processed := int(float64(selectedCount) * m.percent)
+		center = fmt.Sprintf("%d/%d items", processed, selectedCount)
+
+		// Right: Elapsed time
+		deleteElapsed := time.Since(m.deleteStart)
+		right = fmt.Sprintf("Elapsed: %ds", int(deleteElapsed.Seconds()))
+
+	case StateDone:
+		// Left: State
+		left = "[DONE]"
+
+		// Center: Summary
+		var successCount int
+		var freedSize int64
+		for _, r := range m.results {
+			if r.Success {
+				successCount++
+				freedSize += r.Size
+			}
+		}
+		if m.dryRun {
+			center = fmt.Sprintf("✓ %d items • Would free %s", successCount, ui.FormatSize(freedSize))
+		} else {
+			center = fmt.Sprintf("✓ %d items • %s freed", successCount, ui.FormatSize(freedSize))
+		}
+
+		// Right: Total time + hints
+		right = fmt.Sprintf("Total: %ds • any key:rescan q:quit", int(elapsed.Seconds()))
+	}
+
+	// Build status bar with sections
+	leftPart := statusLeftStyle.Render(left)
+	centerPart := statusCenterStyle.Render(center)
+	rightPart := statusRightStyle.Render(right)
+
+	// Calculate spacing
+	leftWidth := lipgloss.Width(leftPart)
+	centerWidth := lipgloss.Width(centerPart)
+	rightWidth := lipgloss.Width(rightPart)
+
+	totalContentWidth := leftWidth + centerWidth + rightWidth
+	availableWidth := m.width
+	if availableWidth == 0 {
+		availableWidth = 80 // Default width
+	}
+
+	// Add padding between sections
+	leftPadding := 2
+	rightPadding := 2
+	if totalContentWidth+leftPadding+rightPadding < availableWidth {
+		// Center the middle section
+		remainingSpace := availableWidth - totalContentWidth - leftPadding - rightPadding
+		leftSpacing := strings.Repeat(" ", leftPadding)
+		middleSpacing := strings.Repeat(" ", remainingSpace/2)
+		rightSpacing := strings.Repeat(" ", remainingSpace-remainingSpace/2)
+
+		content := leftPart + leftSpacing + centerPart + middleSpacing + rightPart + rightSpacing
+		return statusBarStyle.Width(availableWidth).Render(content)
+	}
+
+	// If too wide, just concatenate with minimal spacing
+	content := leftPart + " " + centerPart + " " + rightPart
+	return statusBarStyle.Render(content)
+}
+
 // Run starts the TUI
-func Run(items []types.ScanResult, dryRun bool) error {
-	m := NewModel(items, dryRun)
+func Run(items []types.ScanResult, dryRun bool, version string) error {
+	m := NewModel(items, dryRun, version)
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	_, err := p.Run()
 	return err

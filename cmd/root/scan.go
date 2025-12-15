@@ -98,7 +98,7 @@ func runScan(cmd *cobra.Command, args []string) {
 
 	// Launch TUI by default
 	if scanTUI {
-		if err := tui.Run(results, false); err != nil {
+		if err := tui.Run(results, false, Version); err != nil {
 			fmt.Fprintf(os.Stderr, "Error running TUI: %v\n", err)
 			os.Exit(1)
 		}
