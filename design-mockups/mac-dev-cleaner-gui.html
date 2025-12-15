@@ -1,0 +1,1145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mac Dev Cleaner - Design Mockup</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+    * {
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro', 'Inter', sans-serif;
+    }
+
+    body {
+      background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%);
+      margin: 0;
+      padding: 20px;
+      min-height: 100vh;
+    }
+
+    .window {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(40px) saturate(180%);
+      -webkit-backdrop-filter: blur(40px) saturate(180%);
+      border-radius: 12px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15), 0 0 0 0.5px rgba(0, 0, 0, 0.05);
+      overflow: hidden;
+      margin: 0 auto;
+      max-width: 1200px;
+    }
+
+    .traffic-lights {
+      display: flex;
+      gap: 8px;
+      padding: 12px 16px;
+    }
+
+    .traffic-light {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      border: 0.5px solid rgba(0, 0, 0, 0.1);
+    }
+
+    .traffic-light.close { background: #FF5F57; }
+    .traffic-light.minimize { background: #FEBC2E; }
+    .traffic-light.maximize { background: #28C840; }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 24px;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+      background: rgba(255, 255, 255, 0.7);
+      backdrop-filter: blur(20px);
+    }
+
+    .btn {
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn:active {
+      transform: scale(0.98);
+    }
+
+    .btn-primary {
+      background: #147EFB;
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #0D6DD9;
+    }
+
+    .btn-destructive {
+      background: #FF3B30;
+      color: white;
+    }
+
+    .btn-destructive:hover {
+      background: #E6352A;
+    }
+
+    .btn-destructive:disabled {
+      background: #E5E5E5;
+      color: #999;
+      cursor: not-allowed;
+    }
+
+    .btn-ghost {
+      background: transparent;
+      color: #333;
+      border: 1px solid rgba(0, 0, 0, 0.1);
+    }
+
+    .btn-ghost:hover {
+      background: rgba(0, 0, 0, 0.05);
+    }
+
+    .view-toggle {
+      display: flex;
+      gap: 0;
+      background: rgba(0, 0, 0, 0.05);
+      border-radius: 8px;
+      padding: 2px;
+    }
+
+    .view-toggle button {
+      padding: 6px 12px;
+      border: none;
+      background: transparent;
+      color: #666;
+      cursor: pointer;
+      border-radius: 6px;
+      font-size: 13px;
+      transition: all 0.2s ease;
+    }
+
+    .view-toggle button.active {
+      background: white;
+      color: #147EFB;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+
+    .search-input {
+      padding: 8px 16px 8px 36px;
+      border: 1px solid rgba(0, 0, 0, 0.1);
+      border-radius: 8px;
+      font-size: 14px;
+      width: 240px;
+      background: white;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%23999' viewBox='0 0 16 16'%3E%3Cpath d='M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: 12px center;
+    }
+
+    .search-input:focus {
+      outline: none;
+      border-color: #147EFB;
+      box-shadow: 0 0 0 3px rgba(20, 126, 251, 0.1);
+    }
+
+    .content-area {
+      display: flex;
+      height: 560px;
+    }
+
+    .tree-panel {
+      flex: 1;
+      overflow-y: auto;
+      border-right: 1px solid rgba(0, 0, 0, 0.08);
+      background: rgba(255, 255, 255, 0.5);
+    }
+
+    .treemap-panel {
+      flex: 0.67;
+      overflow: hidden;
+      background: rgba(248, 249, 250, 0.8);
+      position: relative;
+    }
+
+    .tree-item {
+      display: flex;
+      align-items: center;
+      padding: 8px 16px;
+      cursor: pointer;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+      transition: background 0.15s ease;
+    }
+
+    .tree-item:hover {
+      background: rgba(0, 0, 0, 0.03);
+    }
+
+    .tree-item.selected {
+      background: rgba(20, 126, 251, 0.08);
+    }
+
+    .tree-item input[type="checkbox"] {
+      margin-right: 12px;
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+    }
+
+    .expand-icon {
+      width: 20px;
+      height: 20px;
+      margin-right: 8px;
+      color: #999;
+      transition: transform 0.2s ease;
+      flex-shrink: 0;
+    }
+
+    .expand-icon.expanded {
+      transform: rotate(90deg);
+    }
+
+    .category-badge {
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      margin-right: 12px;
+      flex-shrink: 0;
+    }
+
+    .badge-xcode { background: rgba(20, 126, 251, 0.15); color: #147EFB; }
+    .badge-android { background: rgba(61, 220, 132, 0.15); color: #2FAC66; }
+    .badge-node { background: rgba(104, 160, 99, 0.15); color: #68A063; }
+
+    .item-name {
+      flex: 1;
+      font-size: 13px;
+      color: #333;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .item-size {
+      font-size: 13px;
+      font-weight: 600;
+      color: #666;
+      margin-left: 16px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .treemap-container {
+      padding: 16px;
+      height: 100%;
+    }
+
+    .treemap {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 2px;
+      align-content: flex-start;
+    }
+
+    .treemap-rect {
+      position: relative;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 8px;
+      overflow: hidden;
+      border: 1px solid rgba(0, 0, 0, 0.1);
+    }
+
+    .treemap-rect:hover {
+      transform: scale(1.02);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      z-index: 10;
+    }
+
+    .treemap-rect.xcode { background: #147EFB; color: white; }
+    .treemap-rect.android { background: #3DDC84; color: white; }
+    .treemap-rect.node { background: #68A063; color: white; }
+
+    .treemap-label {
+      font-size: 12px;
+      font-weight: 600;
+      text-align: center;
+      line-height: 1.3;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+    }
+
+    .treemap-size {
+      font-size: 11px;
+      opacity: 0.9;
+      margin-top: 4px;
+    }
+
+    .bottom-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 24px;
+      border-top: 1px solid rgba(0, 0, 0, 0.08);
+      background: rgba(255, 255, 255, 0.8);
+      backdrop-filter: blur(20px);
+    }
+
+    .selection-summary {
+      font-size: 14px;
+      color: #666;
+    }
+
+    .selection-summary strong {
+      color: #333;
+      font-weight: 600;
+    }
+
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      backdrop-filter: blur(4px);
+    }
+
+    .modal-overlay.active {
+      display: flex;
+      animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    @keyframes slideUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px) scale(0.95);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    .modal {
+      background: rgba(255, 255, 255, 0.98);
+      backdrop-filter: blur(40px) saturate(180%);
+      border-radius: 12px;
+      padding: 24px;
+      max-width: 480px;
+      width: 90%;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      animation: slideUp 0.3s ease;
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .modal-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+    }
+
+    .modal-icon.warning {
+      background: rgba(255, 59, 48, 0.1);
+      color: #FF3B30;
+    }
+
+    .modal-icon.settings {
+      background: rgba(142, 142, 147, 0.1);
+      color: #8E8E93;
+    }
+
+    .modal-title {
+      font-size: 20px;
+      font-weight: 600;
+      color: #333;
+    }
+
+    .modal-content {
+      margin-bottom: 24px;
+    }
+
+    .modal-text {
+      font-size: 14px;
+      color: #666;
+      line-height: 1.6;
+      margin-bottom: 16px;
+    }
+
+    .items-list {
+      max-height: 200px;
+      overflow-y: auto;
+      background: rgba(0, 0, 0, 0.03);
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 16px;
+    }
+
+    .items-list-item {
+      font-size: 13px;
+      color: #333;
+      padding: 4px 0;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .items-list-item .size {
+      color: #999;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 12px;
+      justify-content: flex-end;
+    }
+
+    .setting-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 0;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    }
+
+    .setting-row:last-child {
+      border-bottom: none;
+    }
+
+    .setting-label {
+      font-size: 14px;
+      color: #333;
+    }
+
+    .setting-description {
+      font-size: 12px;
+      color: #999;
+      margin-top: 4px;
+    }
+
+    .toggle-switch {
+      position: relative;
+      width: 48px;
+      height: 28px;
+      background: #E5E5E5;
+      border-radius: 14px;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+
+    .toggle-switch.active {
+      background: #34C759;
+    }
+
+    .toggle-switch::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 24px;
+      height: 24px;
+      background: white;
+      border-radius: 50%;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+      transition: transform 0.3s ease;
+    }
+
+    .toggle-switch.active::after {
+      transform: translateX(20px);
+    }
+
+    select {
+      padding: 6px 12px;
+      border: 1px solid rgba(0, 0, 0, 0.1);
+      border-radius: 6px;
+      font-size: 14px;
+      background: white;
+      cursor: pointer;
+    }
+
+    select:focus {
+      outline: none;
+      border-color: #147EFB;
+      box-shadow: 0 0 0 3px rgba(20, 126, 251, 0.1);
+    }
+
+    .tooltip {
+      position: absolute;
+      background: rgba(0, 0, 0, 0.85);
+      color: white;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      pointer-events: none;
+      z-index: 100;
+      white-space: nowrap;
+      display: none;
+      backdrop-filter: blur(10px);
+    }
+
+    .tooltip.visible {
+      display: block;
+    }
+
+    /* Scrollbar styling */
+    ::-webkit-scrollbar {
+      width: 12px;
+      height: 12px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: rgba(0, 0, 0, 0.03);
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: rgba(0, 0, 0, 0.15);
+      border-radius: 6px;
+      border: 2px solid transparent;
+      background-clip: padding-box;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(0, 0, 0, 0.25);
+      background-clip: padding-box;
+    }
+  </style>
+</head>
+<body>
+  <!-- Main Window -->
+  <div class="window">
+    <!-- Traffic Lights -->
+    <div class="traffic-lights">
+      <div class="traffic-light close"></div>
+      <div class="traffic-light minimize"></div>
+      <div class="traffic-light maximize"></div>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <button class="btn btn-primary" onclick="simulateScan()">
+          <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+            <path d="M11.534 7h3.932a.25.25 0 0 1 .192.41l-1.966 2.36a.25.25 0 0 1-.384 0l-1.966-2.36a.25.25 0 0 1 .192-.41zm-11 2h3.932a.25.25 0 0 0 .192-.41L2.692 6.23a.25.25 0 0 0-.384 0L.342 8.59A.25.25 0 0 0 .534 9z"/>
+            <path fill-rule="evenodd" d="M8 3c-1.552 0-2.94.707-3.857 1.818a.5.5 0 1 1-.771-.636A6.002 6.002 0 0 1 13.917 7H12.9A5.002 5.002 0 0 0 8 3zM3.1 9a5.002 5.002 0 0 0 8.757 2.182.5.5 0 1 1 .771.636A6.002 6.002 0 0 1 2.083 9H3.1z"/>
+          </svg>
+          Scan
+        </button>
+
+        <div class="view-toggle">
+          <button class="active" onclick="setView('split')">Split</button>
+          <button onclick="setView('list')">List</button>
+          <button onclick="setView('treemap')">Treemap</button>
+        </div>
+      </div>
+
+      <input type="text" class="search-input" placeholder="Search files..." oninput="filterItems(this.value)">
+
+      <button class="btn btn-ghost" onclick="showSettings()">
+        <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+          <path d="M8 4.754a3.246 3.246 0 1 0 0 6.492 3.246 3.246 0 0 0 0-6.492zM5.754 8a2.246 2.246 0 1 1 4.492 0 2.246 2.246 0 0 1-4.492 0z"/>
+          <path d="M9.796 1.343c-.527-1.79-3.065-1.79-3.592 0l-.094.319a.873.873 0 0 1-1.255.52l-.292-.16c-1.64-.892-3.433.902-2.54 2.541l.159.292a.873.873 0 0 1-.52 1.255l-.319.094c-1.79.527-1.79 3.065 0 3.592l.319.094a.873.873 0 0 1 .52 1.255l-.16.292c-.892 1.64.901 3.434 2.541 2.54l.292-.159a.873.873 0 0 1 1.255.52l.094.319c.527 1.79 3.065 1.79 3.592 0l.094-.319a.873.873 0 0 1 1.255-.52l.292.16c1.64.893 3.434-.902 2.54-2.541l-.159-.292a.873.873 0 0 1 .52-1.255l.319-.094c1.79-.527 1.79-3.065 0-3.592l-.319-.094a.873.873 0 0 1-.52-1.255l.16-.292c.893-1.64-.902-3.433-2.541-2.54l-.292.159a.873.873 0 0 1-1.255-.52l-.094-.319z"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Content Area -->
+    <div class="content-area" id="contentArea">
+      <!-- Tree List Panel -->
+      <div class="tree-panel" id="treePanel">
+        <div class="tree-item" onclick="toggleItem(this)">
+          <input type="checkbox" onclick="event.stopPropagation(); updateSelection()">
+          <svg class="expand-icon" fill="currentColor" viewBox="0 0 16 16">
+            <path fill-rule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/>
+          </svg>
+          <span class="category-badge badge-android">Android</span>
+          <span class="item-name">Android System Images</span>
+          <span class="item-size">9.0 GB</span>
+        </div>
+
+        <div class="tree-item" onclick="toggleItem(this)">
+          <input type="checkbox" onclick="event.stopPropagation(); updateSelection()">
+          <svg class="expand-icon" fill="currentColor" viewBox="0 0 16 16">
+            <path fill-rule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/>
+          </svg>
+          <span class="category-badge badge-xcode">Xcode</span>
+          <span class="item-name">Xcode DerivedData</span>
+          <span class="item-size">7.4 GB</span>
+        </div>
+
+        <div class="tree-item" onclick="toggleItem(this)">
+          <input type="checkbox" onclick="event.stopPropagation(); updateSelection()">
+          <svg class="expand-icon" fill="currentColor" viewBox="0 0 16 16">
+            <path fill-rule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/>
+          </svg>
+          <span class="category-badge badge-android">Android</span>
+          <span class="item-name">Gradle Caches</span>
+          <span class="item-size">5.4 GB</span>
+        </div>
+
+        <div class="tree-item" onclick="toggleItem(this)">
+          <input type="checkbox" onclick="event.stopPropagation(); updateSelection()">
+          <svg class="expand-icon" fill="currentColor" viewBox="0 0 16 16">
+            <path fill-rule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/>
+          </svg>
+          <span class="category-badge badge-xcode">Xcode</span>
+          <span class="item-name">DerivedData/Runner-asdkjhasd</span>
+          <span class="item-size">3.9 GB</span>
+        </div>
+
+        <div class="tree-item" onclick="toggleItem(this)">
+          <input type="checkbox" onclick="event.stopPropagation(); updateSelection()">
+          <svg class="expand-icon" fill="currentColor" viewBox="0 0 16 16">
+            <path fill-rule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/>
+          </svg>
+          <span class="category-badge badge-node">Node</span>
+          <span class="item-name">npm Cache</span>
+          <span class="item-size">1.8 GB</span>
+        </div>
+
+        <div class="tree-item" onclick="toggleItem(this)">
+          <input type="checkbox" onclick="event.stopPropagation(); updateSelection()">
+          <svg class="expand-icon" fill="currentColor" viewBox="0 0 16 16">
+            <path fill-rule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/>
+          </svg>
+          <span class="category-badge badge-xcode">Xcode</span>
+          <span class="item-name">Xcode Archives</span>
+          <span class="item-size">2.3 GB</span>
+        </div>
+
+        <div class="tree-item" onclick="toggleItem(this)">
+          <input type="checkbox" onclick="event.stopPropagation(); updateSelection()">
+          <svg class="expand-icon" fill="currentColor" viewBox="0 0 16 16">
+            <path fill-rule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/>
+          </svg>
+          <span class="category-badge badge-node">Node</span>
+          <span class="item-name">node_modules (project-a)</span>
+          <span class="item-size">1.2 GB</span>
+        </div>
+
+        <div class="tree-item" onclick="toggleItem(this)">
+          <input type="checkbox" onclick="event.stopPropagation(); updateSelection()">
+          <svg class="expand-icon" fill="currentColor" viewBox="0 0 16 16">
+            <path fill-rule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/>
+          </svg>
+          <span class="category-badge badge-android">Android</span>
+          <span class="item-name">Android Build Cache</span>
+          <span class="item-size">890 MB</span>
+        </div>
+
+        <div class="tree-item" onclick="toggleItem(this)">
+          <input type="checkbox" onclick="event.stopPropagation(); updateSelection()">
+          <svg class="expand-icon" fill="currentColor" viewBox="0 0 16 16">
+            <path fill-rule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/>
+          </svg>
+          <span class="category-badge badge-node">Node</span>
+          <span class="item-name">yarn Cache</span>
+          <span class="item-size">645 MB</span>
+        </div>
+
+        <div class="tree-item" onclick="toggleItem(this)">
+          <input type="checkbox" onclick="event.stopPropagation(); updateSelection()">
+          <svg class="expand-icon" fill="currentColor" viewBox="0 0 16 16">
+            <path fill-rule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/>
+          </svg>
+          <span class="category-badge badge-xcode">Xcode</span>
+          <span class="item-name">CoreSimulator Caches</span>
+          <span class="item-size">512 MB</span>
+        </div>
+
+        <div class="tree-item" onclick="toggleItem(this)">
+          <input type="checkbox" onclick="event.stopPropagation(); updateSelection()">
+          <svg class="expand-icon" fill="currentColor" viewBox="0 0 16 16">
+            <path fill-rule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/>
+          </svg>
+          <span class="category-badge badge-node">Node</span>
+          <span class="item-name">node_modules (project-b)</span>
+          <span class="item-size">434 MB</span>
+        </div>
+
+        <div class="tree-item" onclick="toggleItem(this)">
+          <input type="checkbox" onclick="event.stopPropagation(); updateSelection()">
+          <svg class="expand-icon" fill="currentColor" viewBox="0 0 16 16">
+            <path fill-rule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/>
+          </svg>
+          <span class="category-badge badge-xcode">Xcode</span>
+          <span class="item-name">CocoaPods Cache</span>
+          <span class="item-size">287 MB</span>
+        </div>
+
+        <div class="tree-item" onclick="toggleItem(this)">
+          <input type="checkbox" onclick="event.stopPropagation(); updateSelection()">
+          <svg class="expand-icon" fill="currentColor" viewBox="0 0 16 16">
+            <path fill-rule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/>
+          </svg>
+          <span class="category-badge badge-android">Android</span>
+          <span class="item-name">Gradle Wrapper</span>
+          <span class="item-size">156 MB</span>
+        </div>
+
+        <div class="tree-item" onclick="toggleItem(this)">
+          <input type="checkbox" onclick="event.stopPropagation(); updateSelection()">
+          <svg class="expand-icon" fill="currentColor" viewBox="0 0 16 16">
+            <path fill-rule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/>
+          </svg>
+          <span class="category-badge badge-node">Node</span>
+          <span class="item-name">pnpm Store</span>
+          <span class="item-size">123 MB</span>
+        </div>
+      </div>
+
+      <!-- Treemap Panel -->
+      <div class="treemap-panel" id="treemapPanel">
+        <div class="treemap-container">
+          <div class="treemap">
+            <div class="treemap-rect android" style="width: 48%; height: 45%;"
+                 onmouseenter="showTooltip(event, 'Android System Images', '9.0 GB')"
+                 onmouseleave="hideTooltip()">
+              <div class="treemap-label">
+                <div>Android System Images</div>
+                <div class="treemap-size">9.0 GB</div>
+              </div>
+            </div>
+
+            <div class="treemap-rect xcode" style="width: 50%; height: 45%;"
+                 onmouseenter="showTooltip(event, 'Xcode DerivedData', '7.4 GB')"
+                 onmouseleave="hideTooltip()">
+              <div class="treemap-label">
+                <div>Xcode DerivedData</div>
+                <div class="treemap-size">7.4 GB</div>
+              </div>
+            </div>
+
+            <div class="treemap-rect android" style="width: 36%; height: 30%;"
+                 onmouseenter="showTooltip(event, 'Gradle Caches', '5.4 GB')"
+                 onmouseleave="hideTooltip()">
+              <div class="treemap-label">
+                <div>Gradle Caches</div>
+                <div class="treemap-size">5.4 GB</div>
+              </div>
+            </div>
+
+            <div class="treemap-rect xcode" style="width: 26%; height: 30%;"
+                 onmouseenter="showTooltip(event, 'DerivedData/Runner-xxx', '3.9 GB')"
+                 onmouseleave="hideTooltip()">
+              <div class="treemap-label">
+                <div>Runner-xxx</div>
+                <div class="treemap-size">3.9 GB</div>
+              </div>
+            </div>
+
+            <div class="treemap-rect xcode" style="width: 16%; height: 30%;"
+                 onmouseenter="showTooltip(event, 'Xcode Archives', '2.3 GB')"
+                 onmouseleave="hideTooltip()">
+              <div class="treemap-label">
+                <div>Archives</div>
+                <div class="treemap-size">2.3 GB</div>
+              </div>
+            </div>
+
+            <div class="treemap-rect node" style="width: 20%; height: 30%;"
+                 onmouseenter="showTooltip(event, 'npm Cache', '1.8 GB')"
+                 onmouseleave="hideTooltip()">
+              <div class="treemap-label">
+                <div>npm Cache</div>
+                <div class="treemap-size">1.8 GB</div>
+              </div>
+            </div>
+
+            <div class="treemap-rect node" style="width: 14%; height: 20%;"
+                 onmouseenter="showTooltip(event, 'node_modules (project-a)', '1.2 GB')"
+                 onmouseleave="hideTooltip()">
+              <div class="treemap-label">
+                <div style="font-size: 11px;">node_modules</div>
+                <div class="treemap-size">1.2 GB</div>
+              </div>
+            </div>
+
+            <div class="treemap-rect android" style="width: 10%; height: 20%;"
+                 onmouseenter="showTooltip(event, 'Android Build Cache', '890 MB')"
+                 onmouseleave="hideTooltip()">
+              <div class="treemap-label">
+                <div style="font-size: 10px;">Build</div>
+                <div class="treemap-size">890 MB</div>
+              </div>
+            </div>
+
+            <div class="treemap-rect node" style="width: 9%; height: 20%;"
+                 onmouseenter="showTooltip(event, 'yarn Cache', '645 MB')"
+                 onmouseleave="hideTooltip()">
+              <div class="treemap-label">
+                <div style="font-size: 10px;">yarn</div>
+                <div class="treemap-size">645 MB</div>
+              </div>
+            </div>
+
+            <div class="treemap-rect xcode" style="width: 7.5%; height: 20%;"
+                 onmouseenter="showTooltip(event, 'CoreSimulator Caches', '512 MB')"
+                 onmouseleave="hideTooltip()">
+              <div class="treemap-label">
+                <div style="font-size: 9px;">Sim</div>
+                <div class="treemap-size">512 MB</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom Bar -->
+    <div class="bottom-bar">
+      <div class="selection-summary">
+        <span id="selectionText">0 items selected, 0 GB</span>
+      </div>
+      <button class="btn btn-destructive" id="cleanBtn" disabled onclick="showCleanDialog()">
+        <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+          <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+          <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+        </svg>
+        Clean Selected
+      </button>
+    </div>
+  </div>
+
+  <!-- Clean Confirmation Modal -->
+  <div class="modal-overlay" id="cleanModal">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-icon warning">⚠️</div>
+        <div>
+          <div class="modal-title">Delete Confirmation</div>
+        </div>
+      </div>
+      <div class="modal-content">
+        <p class="modal-text">
+          Are you sure you want to permanently delete these items? This action cannot be undone.
+        </p>
+        <div style="background: rgba(255, 59, 48, 0.05); border-left: 3px solid #FF3B30; padding: 12px; border-radius: 6px; margin-bottom: 16px;">
+          <div style="font-size: 13px; color: #333; font-weight: 600;">
+            <span id="modalItemCount">0</span> items • <span id="modalTotalSize">0 GB</span>
+          </div>
+        </div>
+        <div class="items-list" id="modalItemsList">
+          <!-- Items will be populated by JavaScript -->
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="hideCleanDialog()">Cancel</button>
+        <button class="btn btn-destructive" onclick="performClean()">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings Modal -->
+  <div class="modal-overlay" id="settingsModal">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-icon settings">⚙️</div>
+        <div>
+          <div class="modal-title">Settings</div>
+        </div>
+      </div>
+      <div class="modal-content">
+        <div class="setting-row">
+          <div>
+            <div class="setting-label">Theme</div>
+            <div class="setting-description">Choose your preferred color scheme</div>
+          </div>
+          <select>
+            <option>Auto</option>
+            <option>Light</option>
+            <option>Dark</option>
+          </select>
+        </div>
+
+        <div class="setting-row">
+          <div>
+            <div class="setting-label">Default View</div>
+            <div class="setting-description">View mode when app launches</div>
+          </div>
+          <select>
+            <option selected>Split View</option>
+            <option>List View</option>
+            <option>Treemap View</option>
+          </select>
+        </div>
+
+        <div class="setting-row">
+          <div>
+            <div class="setting-label">Auto-scan on Launch</div>
+            <div class="setting-description">Automatically scan when app opens</div>
+          </div>
+          <div class="toggle-switch" onclick="toggleSwitch(this)"></div>
+        </div>
+
+        <div class="setting-row">
+          <div>
+            <div class="setting-label">Confirm Before Delete</div>
+            <div class="setting-description">Show confirmation dialog before cleaning</div>
+          </div>
+          <div class="toggle-switch active" onclick="toggleSwitch(this)"></div>
+        </div>
+
+        <div class="setting-row">
+          <div>
+            <div class="setting-label">Maximum Tree Depth</div>
+            <div class="setting-description">Levels of file hierarchy to display</div>
+          </div>
+          <select>
+            <option>2 levels</option>
+            <option selected>3 levels</option>
+            <option>4 levels</option>
+            <option>5 levels</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-primary" onclick="hideSettings()">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tooltip -->
+  <div class="tooltip" id="tooltip"></div>
+
+  <script>
+    // View mode management
+    function setView(mode) {
+      const contentArea = document.getElementById('contentArea');
+      const treePanel = document.getElementById('treePanel');
+      const treemapPanel = document.getElementById('treemapPanel');
+      const buttons = document.querySelectorAll('.view-toggle button');
+
+      buttons.forEach(btn => btn.classList.remove('active'));
+      event.target.classList.add('active');
+
+      if (mode === 'list') {
+        treePanel.style.flex = '1';
+        treemapPanel.style.display = 'none';
+      } else if (mode === 'treemap') {
+        treePanel.style.display = 'none';
+        treemapPanel.style.flex = '1';
+        treemapPanel.style.display = 'block';
+      } else { // split
+        treePanel.style.flex = '1';
+        treePanel.style.display = 'block';
+        treemapPanel.style.flex = '0.67';
+        treemapPanel.style.display = 'block';
+      }
+    }
+
+    // Selection management
+    const itemData = [
+      { name: 'Android System Images', size: 9.0, category: 'android' },
+      { name: 'Xcode DerivedData', size: 7.4, category: 'xcode' },
+      { name: 'Gradle Caches', size: 5.4, category: 'android' },
+      { name: 'DerivedData/Runner-xxx', size: 3.9, category: 'xcode' },
+      { name: 'npm Cache', size: 1.8, category: 'node' },
+      { name: 'Xcode Archives', size: 2.3, category: 'xcode' },
+      { name: 'node_modules (project-a)', size: 1.2, category: 'node' },
+      { name: 'Android Build Cache', size: 0.89, category: 'android' },
+      { name: 'yarn Cache', size: 0.645, category: 'node' },
+      { name: 'CoreSimulator Caches', size: 0.512, category: 'xcode' },
+      { name: 'node_modules (project-b)', size: 0.434, category: 'node' },
+      { name: 'CocoaPods Cache', size: 0.287, category: 'xcode' },
+      { name: 'Gradle Wrapper', size: 0.156, category: 'android' },
+      { name: 'pnpm Store', size: 0.123, category: 'node' }
+    ];
+
+    function updateSelection() {
+      const checkboxes = document.querySelectorAll('.tree-item input[type="checkbox"]');
+      let selectedCount = 0;
+      let totalSize = 0;
+
+      checkboxes.forEach((checkbox, index) => {
+        if (checkbox.checked) {
+          selectedCount++;
+          totalSize += itemData[index].size;
+        }
+      });
+
+      document.getElementById('selectionText').textContent =
+        `${selectedCount} items selected, ${totalSize.toFixed(1)} GB`;
+
+      document.getElementById('cleanBtn').disabled = selectedCount === 0;
+    }
+
+    // Tree item expand/collapse
+    function toggleItem(item) {
+      const icon = item.querySelector('.expand-icon');
+      icon.classList.toggle('expanded');
+      // In a real app, this would expand/collapse children
+    }
+
+    // Clean dialog
+    function showCleanDialog() {
+      const checkboxes = document.querySelectorAll('.tree-item input[type="checkbox"]');
+      let selectedCount = 0;
+      let totalSize = 0;
+      const itemsList = [];
+
+      checkboxes.forEach((checkbox, index) => {
+        if (checkbox.checked) {
+          selectedCount++;
+          totalSize += itemData[index].size;
+          itemsList.push(itemData[index]);
+        }
+      });
+
+      document.getElementById('modalItemCount').textContent = selectedCount;
+      document.getElementById('modalTotalSize').textContent = totalSize.toFixed(1) + ' GB';
+
+      const listHtml = itemsList.map(item => `
+        <div class="items-list-item">
+          <span>${item.name}</span>
+          <span class="size">${item.size.toFixed(2)} GB</span>
+        </div>
+      `).join('');
+
+      document.getElementById('modalItemsList').innerHTML = listHtml;
+      document.getElementById('cleanModal').classList.add('active');
+    }
+
+    function hideCleanDialog() {
+      document.getElementById('cleanModal').classList.remove('active');
+    }
+
+    function performClean() {
+      // Simulate cleaning
+      const checkboxes = document.querySelectorAll('.tree-item input[type="checkbox"]');
+      checkboxes.forEach(checkbox => {
+        if (checkbox.checked) {
+          checkbox.closest('.tree-item').style.opacity = '0.5';
+          checkbox.checked = false;
+        }
+      });
+
+      hideCleanDialog();
+      updateSelection();
+
+      // Show success message (you could add a toast notification here)
+      setTimeout(() => {
+        alert('✅ Successfully cleaned selected items!');
+        const items = document.querySelectorAll('.tree-item');
+        items.forEach(item => item.style.opacity = '1');
+      }, 300);
+    }
+
+    // Settings dialog
+    function showSettings() {
+      document.getElementById('settingsModal').classList.add('active');
+    }
+
+    function hideSettings() {
+      document.getElementById('settingsModal').classList.remove('active');
+    }
+
+    function toggleSwitch(element) {
+      element.classList.toggle('active');
+    }
+
+    // Tooltip
+    function showTooltip(event, name, size) {
+      const tooltip = document.getElementById('tooltip');
+      tooltip.textContent = `${name} - ${size}`;
+      tooltip.style.left = event.pageX + 10 + 'px';
+      tooltip.style.top = event.pageY + 10 + 'px';
+      tooltip.classList.add('visible');
+    }
+
+    function hideTooltip() {
+      document.getElementById('tooltip').classList.remove('visible');
+    }
+
+    // Search filter
+    function filterItems(query) {
+      const items = document.querySelectorAll('.tree-item');
+      const lowerQuery = query.toLowerCase();
+
+      items.forEach(item => {
+        const name = item.querySelector('.item-name').textContent.toLowerCase();
+        if (name.includes(lowerQuery)) {
+          item.style.display = 'flex';
+        } else {
+          item.style.display = 'none';
+        }
+      });
+    }
+
+    // Simulate scan
+    function simulateScan() {
+      const btn = event.target;
+      btn.disabled = true;
+      btn.innerHTML = `
+        <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16" style="animation: spin 1s linear infinite;">
+          <path d="M11.534 7h3.932a.25.25 0 0 1 .192.41l-1.966 2.36a.25.25 0 0 1-.384 0l-1.966-2.36a.25.25 0 0 1 .192-.41zm-11 2h3.932a.25.25 0 0 0 .192-.41L2.692 6.23a.25.25 0 0 0-.384 0L.342 8.59A.25.25 0 0 0 .534 9z"/>
+          <path fill-rule="evenodd" d="M8 3c-1.552 0-2.94.707-3.857 1.818a.5.5 0 1 1-.771-.636A6.002 6.002 0 0 1 13.917 7H12.9A5.002 5.002 0 0 0 8 3zM3.1 9a5.002 5.002 0 0 0 8.757 2.182.5.5 0 1 1 .771.636A6.002 6.002 0 0 1 2.083 9H3.1z"/>
+        </svg>
+        Scanning...
+      `;
+
+      setTimeout(() => {
+        btn.disabled = false;
+        btn.innerHTML = `
+          <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+            <path d="M11.534 7h3.932a.25.25 0 0 1 .192.41l-1.966 2.36a.25.25 0 0 1-.384 0l-1.966-2.36a.25.25 0 0 1 .192-.41zm-11 2h3.932a.25.25 0 0 0 .192-.41L2.692 6.23a.25.25 0 0 0-.384 0L.342 8.59A.25.25 0 0 0 .534 9z"/>
+            <path fill-rule="evenodd" d="M8 3c-1.552 0-2.94.707-3.857 1.818a.5.5 0 1 1-.771-.636A6.002 6.002 0 0 1 13.917 7H12.9A5.002 5.002 0 0 0 8 3zM3.1 9a5.002 5.002 0 0 0 8.757 2.182.5.5 0 1 1 .771.636A6.002 6.002 0 0 1 2.083 9H3.1z"/>
+          </svg>
+          Scan
+        `;
+      }, 2000);
+    }
+
+    // Add spin animation
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+      }
+    `;
+    document.head.appendChild(style);
+
+    // Close modals on overlay click
+    document.querySelectorAll('.modal-overlay').forEach(overlay => {
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) {
+          overlay.classList.remove('active');
+        }
+      });
+    });
+  </script>
+</body>
+</html>
