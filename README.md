@@ -24,6 +24,12 @@ Mac Dev Cleaner is a CLI tool that helps developers reclaim disk space by removi
 - 📦 **Single Binary** - No dependencies, just download and run
 - 🌍 **Cross-platform** - Works on macOS and Linux (Intel & ARM64)
 
+## 📸 Screenshot
+
+![Mac Dev Cleaner TUI](screens.png)
+
+*Interactive TUI showing cleanable items with sizes and multi-select checkboxes*
+
 ## Installation
 
 ### Homebrew (Recommended)
