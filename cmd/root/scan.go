@@ -15,6 +15,7 @@ var (
 	scanIOS     bool
 	scanAndroid bool
 	scanNode    bool
+	scanFlutter bool
 	scanAll     bool
 	scanTUI     bool
 )
@@ -41,6 +42,7 @@ func init() {
 	scanCmd.Flags().BoolVar(&scanIOS, "ios", false, "Scan iOS/Xcode artifacts only")
 	scanCmd.Flags().BoolVar(&scanAndroid, "android", false, "Scan Android/Gradle artifacts only")
 	scanCmd.Flags().BoolVar(&scanNode, "node", false, "Scan Node.js artifacts only")
+	scanCmd.Flags().BoolVar(&scanFlutter, "flutter", false, "Scan Flutter/Dart artifacts only")
 	scanCmd.Flags().BoolVar(&scanAll, "all", true, "Scan all categories (default)")
 	scanCmd.Flags().BoolVar(&scanTUI, "tui", true, "Launch interactive TUI (default)")
 	scanCmd.Flags().BoolP("no-tui", "T", false, "Disable TUI, show text output")
@@ -59,15 +61,17 @@ func runScan(cmd *cobra.Command, args []string) {
 	}
 
 	// If any specific flag is set, use only those
-	if scanIOS || scanAndroid || scanNode {
+	if scanIOS || scanAndroid || scanNode || scanFlutter {
 		opts.IncludeXcode = scanIOS
 		opts.IncludeAndroid = scanAndroid
 		opts.IncludeNode = scanNode
+		opts.IncludeFlutter = scanFlutter
 	} else {
 		// Default: scan all
 		opts.IncludeXcode = true
 		opts.IncludeAndroid = true
 		opts.IncludeNode = true
+		opts.IncludeFlutter = true
 	}
 
 	ui.PrintHeader("Scanning for development artifacts...")

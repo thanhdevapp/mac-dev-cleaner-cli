@@ -73,6 +73,17 @@ func (s *Scanner) ScanAll(opts types.ScanOptions) ([]types.ScanResult, error) {
 		}()
 	}
 
+	if opts.IncludeFlutter {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			flutterResults := s.ScanFlutter(opts.MaxDepth)
+			mu.Lock()
+			results = append(results, flutterResults...)
+			mu.Unlock()
+		}()
+	}
+
 	wg.Wait()
 	return results, nil
 }

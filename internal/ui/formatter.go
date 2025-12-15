@@ -23,6 +23,7 @@ var (
 	xcodeColor   = lipgloss.Color("#147EFB") // Apple Blue
 	androidColor = lipgloss.Color("#3DDC84") // Android Green
 	nodeColor    = lipgloss.Color("#68A063") // Node Green
+	flutterColor = lipgloss.Color("#02569B") // Flutter Blue
 	cacheColor   = lipgloss.Color("#9CA3AF") // Gray
 )
 
@@ -131,6 +132,8 @@ func getTypeStyle(t types.CleanTargetType) lipgloss.Style {
 		return style.Foreground(androidColor)
 	case types.TypeNode:
 		return style.Foreground(nodeColor)
+	case types.TypeFlutter:
+		return style.Foreground(flutterColor)
 	case types.TypeCache:
 		return style.Foreground(cacheColor)
 	default:
@@ -245,6 +248,9 @@ func PrintSummary(results []types.ScanResult) {
 	}
 	if c := typeCounts[types.TypeNode]; c > 0 {
 		breakdown += getTypeStyle(types.TypeNode).Render(fmt.Sprintf(" %d node", c))
+	}
+	if c := typeCounts[types.TypeFlutter]; c > 0 {
+		breakdown += getTypeStyle(types.TypeFlutter).Render(fmt.Sprintf(" %d flutter", c))
 	}
 	if breakdown != "" {
 		fmt.Println(lipgloss.NewStyle().Foreground(mutedColor).Render("   " + breakdown))

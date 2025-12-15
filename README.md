@@ -12,6 +12,7 @@ Mac Dev Cleaner is a CLI tool that helps developers reclaim disk space by removi
 - **Xcode** - DerivedData, Archives, Caches
 - **Android** - Gradle caches, SDK caches
 - **Node.js** - node_modules, npm/yarn/pnpm/bun caches
+- **Flutter/Dart** - .pub-cache, .dart_tool, build artifacts
 
 ## Installation
 
@@ -43,6 +44,7 @@ dev-cleaner scan
 dev-cleaner scan --ios
 dev-cleaner scan --android
 dev-cleaner scan --node
+dev-cleaner scan --flutter
 ```
 
 **Example Output:**
@@ -101,6 +103,15 @@ dev-cleaner clean --ios --confirm
 - `~/.pnpm-store/`
 - `~/.yarn/cache/`
 - `~/.bun/install/cache/`
+
+### Flutter/Dart
+- `~/.pub-cache/`
+- `~/.dart_tool/`
+- `~/Library/Caches/Flutter/`
+- `~/Library/Caches/dart/`
+- `*/build/` (in Flutter projects)
+- `*/.dart_tool/` (in Flutter projects)
+- `*/ios/build/`, `*/android/build/` (in Flutter projects)
 
 ## Development
 

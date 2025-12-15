@@ -21,6 +21,7 @@ var (
 	cleanIOS     bool
 	cleanAndroid bool
 	cleanNode    bool
+	cleanFlutter bool
 	useTUI       bool
 )
 
@@ -49,6 +50,7 @@ func init() {
 	cleanCmd.Flags().BoolVar(&cleanIOS, "ios", false, "Clean iOS/Xcode artifacts only")
 	cleanCmd.Flags().BoolVar(&cleanAndroid, "android", false, "Clean Android/Gradle artifacts only")
 	cleanCmd.Flags().BoolVar(&cleanNode, "node", false, "Clean Node.js artifacts only")
+	cleanCmd.Flags().BoolVar(&cleanFlutter, "flutter", false, "Clean Flutter/Dart artifacts only")
 	cleanCmd.Flags().BoolVar(&useTUI, "tui", true, "Use interactive TUI mode (default)")
 	cleanCmd.Flags().BoolP("no-tui", "T", false, "Disable TUI, use simple text mode")
 }
@@ -76,14 +78,16 @@ func runClean(cmd *cobra.Command, args []string) {
 		MaxDepth: 3,
 	}
 
-	if cleanIOS || cleanAndroid || cleanNode {
+	if cleanIOS || cleanAndroid || cleanNode || cleanFlutter {
 		opts.IncludeXcode = cleanIOS
 		opts.IncludeAndroid = cleanAndroid
 		opts.IncludeNode = cleanNode
+		opts.IncludeFlutter = cleanFlutter
 	} else {
 		opts.IncludeXcode = true
 		opts.IncludeAndroid = true
 		opts.IncludeNode = true
+		opts.IncludeFlutter = true
 	}
 
 	ui.PrintHeader("Scanning for development artifacts...")

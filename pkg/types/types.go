@@ -8,6 +8,7 @@ const (
 	TypeXcode   CleanTargetType = "xcode"
 	TypeAndroid CleanTargetType = "android"
 	TypeNode    CleanTargetType = "node"
+	TypeFlutter CleanTargetType = "flutter"
 	TypeCache   CleanTargetType = "cache"
 )
 
@@ -25,6 +26,7 @@ type ScanOptions struct {
 	IncludeXcode   bool
 	IncludeAndroid bool
 	IncludeNode    bool
+	IncludeFlutter bool
 	IncludeCache   bool
 	MaxDepth       int
 	ProjectRoot    string // Optional: scan from specific root
@@ -43,6 +45,7 @@ func DefaultScanOptions() ScanOptions {
 		IncludeXcode:   true,
 		IncludeAndroid: true,
 		IncludeNode:    true,
+		IncludeFlutter: true,
 		IncludeCache:   true,
 		MaxDepth:       3,
 	}
