@@ -25,14 +25,13 @@ var scanCmd = &cobra.Command{
 	Short: "Scan for development artifacts",
 	Long: `Scan your system for development artifacts that can be cleaned.
 
-By default, scans all categories (iOS, Android, Node.js).
-Use flags to scan specific categories only.
+By default, opens interactive TUI for selection.
+Use --no-tui for simple text output.
 
 Examples:
-  dev-cleaner scan              # Scan all categories
-  dev-cleaner scan --ios        # Scan iOS/Xcode only
-  dev-cleaner scan --android    # Scan Android/Gradle only
-  dev-cleaner scan --node       # Scan Node.js only`,
+  dev-cleaner scan              # Scan + TUI (default)
+  dev-cleaner scan --no-tui     # Scan + text output
+  dev-cleaner scan --ios        # Scan iOS/Xcode only`,
 	Run: runScan,
 }
 
@@ -43,7 +42,8 @@ func init() {
 	scanCmd.Flags().BoolVar(&scanAndroid, "android", false, "Scan Android/Gradle artifacts only")
 	scanCmd.Flags().BoolVar(&scanNode, "node", false, "Scan Node.js artifacts only")
 	scanCmd.Flags().BoolVar(&scanAll, "all", true, "Scan all categories (default)")
-	scanCmd.Flags().BoolVar(&scanTUI, "tui", false, "Launch interactive TUI for selection")
+	scanCmd.Flags().BoolVar(&scanTUI, "tui", true, "Launch interactive TUI (default)")
+	scanCmd.Flags().BoolP("no-tui", "T", false, "Disable TUI, show text output")
 }
 
 func runScan(cmd *cobra.Command, args []string) {
@@ -86,7 +86,13 @@ func runScan(cmd *cobra.Command, args []string) {
 	// Sort by size (largest first)
 	sortBySize(results)
 
-	// Launch TUI if --tui flag is set
+	// Check for --no-tui flag
+	noTUI, _ := cmd.Flags().GetBool("no-tui")
+	if noTUI {
+		scanTUI = false
+	}
+
+	// Launch TUI by default
 	if scanTUI {
 		if err := tui.Run(results, false); err != nil {
 			fmt.Fprintf(os.Stderr, "Error running TUI: %v\n", err)

@@ -155,6 +155,7 @@ type Model struct {
 	treeMode     bool              // True when in tree view
 	currentNode  *types.TreeNode   // Current tree node
 	nodeStack    []*types.TreeNode // Breadcrumb trail
+	cursorStack  []int             // Cursor positions for each level
 	maxDepth     int               // Max depth limit
 	treeSelected map[string]bool   // Selected items in tree
 	scanning     bool              // True while scanning
@@ -217,7 +218,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Handle based on current state
 		switch m.state {
 		case StateDone:
-			return m, tea.Quit
+			// 'q' to quit, any other key to rescan and continue
+			if msg.String() == "q" || msg.String() == "ctrl+c" {
+				m.quitting = true
+				return m, tea.Quit
+			}
+			// Rescan and return to selection
+			return m, m.rescanItems()
 
 		case StateConfirming:
 			switch msg.String() {
@@ -346,6 +353,20 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.cursor = 0
 		return m, nil
+
+	case rescanItemsMsg:
+		if msg.err != nil {
+			m.err = msg.err
+			return m, nil
+		}
+		// Reset state and show new items
+		m.items = msg.items
+		m.selected = make(map[int]bool)
+		m.cursor = 0
+		m.state = StateSelecting
+		m.results = nil
+		m.err = nil
+		return m, nil
 	}
 
 	return m, nil
@@ -366,6 +387,45 @@ type deleteProgressMsg struct {
 type scanNodeMsg struct {
 	node *types.TreeNode
 	err  error
+}
+
+// rescanItemsMsg is sent when items rescan completes
+type rescanItemsMsg struct {
+	items []types.ScanResult
+	err   error
+}
+
+// rescanItems rescans all items and returns to selection
+func (m Model) rescanItems() tea.Cmd {
+	return func() tea.Msg {
+		s, err := scanner.New()
+		if err != nil {
+			return rescanItemsMsg{err: err}
+		}
+
+		opts := types.ScanOptions{
+			MaxDepth:       3,
+			IncludeXcode:   true,
+			IncludeAndroid: true,
+			IncludeNode:    true,
+		}
+
+		results, err := s.ScanAll(opts)
+		if err != nil {
+			return rescanItemsMsg{err: err}
+		}
+
+		// Sort by size
+		for i := 0; i < len(results)-1; i++ {
+			for j := i + 1; j < len(results); j++ {
+				if results[j].Size > results[i].Size {
+					results[i], results[j] = results[j], results[i]
+				}
+			}
+		}
+
+		return rescanItemsMsg{items: results}
+	}
 }
 
 // enterTreeMode transitions from flat list to tree view
@@ -409,9 +469,17 @@ func (m *Model) goBackInTree() {
 		return
 	}
 
+	// Pop node and cursor from stacks
 	m.currentNode = m.nodeStack[len(m.nodeStack)-1]
 	m.nodeStack = m.nodeStack[:len(m.nodeStack)-1]
-	m.cursor = 0
+
+	// Restore cursor position
+	if len(m.cursorStack) > 0 {
+		m.cursor = m.cursorStack[len(m.cursorStack)-1]
+		m.cursorStack = m.cursorStack[:len(m.cursorStack)-1]
+	} else {
+		m.cursor = 0
+	}
 }
 
 // drillDownInTree navigates into child node
@@ -436,9 +504,13 @@ func (m *Model) drillDownInTree() tea.Cmd {
 
 	if selectedNode.NeedsScanning() {
 		m.scanning = true
+		// Save cursor position before scanning
+		m.cursorStack = append(m.cursorStack, m.cursor)
 		return m.scanNode(selectedNode)
 	}
 
+	// Save cursor position before navigating
+	m.cursorStack = append(m.cursorStack, m.cursor)
 	m.nodeStack = append(m.nodeStack, m.currentNode)
 	m.currentNode = selectedNode
 	m.cursor = 0
@@ -759,7 +831,7 @@ func (m Model) renderSelection(b *strings.Builder) string {
 func (m Model) renderResults(b *strings.Builder) string {
 	if m.err != nil {
 		b.WriteString(errorStyle.Render(fmt.Sprintf("Error: %v", m.err)))
-		b.WriteString("\n\nPress any key to exit.")
+		b.WriteString("\n\nPress any key to rescan, q to quit.")
 		return b.String()
 	}
 
@@ -786,7 +858,7 @@ func (m Model) renderResults(b *strings.Builder) string {
 		summary += fmt.Sprintf(" (%s freed)", ui.FormatSize(freedSize))
 	}
 	b.WriteString(successStyle.Render(summary))
-	b.WriteString("\n\nPress any key to exit.")
+	b.WriteString("\n\nPress any key to rescan, q to quit.")
 
 	return b.String()
 }
