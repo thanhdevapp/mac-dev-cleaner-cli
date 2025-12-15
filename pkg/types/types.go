@@ -5,10 +5,11 @@ package types
 type CleanTargetType string
 
 const (
-	TypeXcode   CleanTargetType = "xcode"
-	TypeAndroid CleanTargetType = "android"
-	TypeNode    CleanTargetType = "node"
-	TypeCache   CleanTargetType = "cache"
+	TypeXcode       CleanTargetType = "xcode"
+	TypeAndroid     CleanTargetType = "android"
+	TypeNode        CleanTargetType = "node"
+	TypeReactNative CleanTargetType = "react-native"
+	TypeCache       CleanTargetType = "cache"
 )
 
 // ScanResult represents a single scannable/cleanable directory
@@ -22,12 +23,13 @@ type ScanResult struct {
 
 // ScanOptions controls scanning behavior
 type ScanOptions struct {
-	IncludeXcode   bool
-	IncludeAndroid bool
-	IncludeNode    bool
-	IncludeCache   bool
-	MaxDepth       int
-	ProjectRoot    string // Optional: scan from specific root
+	IncludeXcode       bool
+	IncludeAndroid     bool
+	IncludeNode        bool
+	IncludeReactNative bool
+	IncludeCache       bool
+	MaxDepth           int
+	ProjectRoot        string // Optional: scan from specific root
 }
 
 // CleanOptions controls cleaning behavior
@@ -40,10 +42,11 @@ type CleanOptions struct {
 // DefaultScanOptions returns options with all categories enabled
 func DefaultScanOptions() ScanOptions {
 	return ScanOptions{
-		IncludeXcode:   true,
-		IncludeAndroid: true,
-		IncludeNode:    true,
-		IncludeCache:   true,
-		MaxDepth:       3,
+		IncludeXcode:       true,
+		IncludeAndroid:     true,
+		IncludeNode:        true,
+		IncludeReactNative: true,
+		IncludeCache:       true,
+		MaxDepth:           3,
 	}
 }

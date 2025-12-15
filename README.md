@@ -13,6 +13,7 @@ Mac Dev Cleaner is a CLI tool that helps developers reclaim disk space by removi
 - **Xcode** - DerivedData, Archives, Caches
 - **Android** - Gradle caches, SDK caches
 - **Node.js** - node_modules, npm/yarn/pnpm/bun caches
+- **React Native** - Metro bundler, Haste maps, packager caches
 
 ## ✨ Features
 
@@ -95,6 +96,10 @@ dev-cleaner scan
 dev-cleaner scan --ios
 dev-cleaner scan --android
 dev-cleaner scan --node
+dev-cleaner scan --react-native  # or --rn
+
+# Combine flags for React Native projects
+dev-cleaner scan --rn --ios --android --node
 ```
 
 **Example Output:**
@@ -123,6 +128,10 @@ dev-cleaner clean --confirm
 
 # Clean specific category
 dev-cleaner clean --ios --confirm
+dev-cleaner clean --rn --confirm
+
+# Clean React Native project (all RN-related caches)
+dev-cleaner clean --rn --ios --android --node --confirm
 ```
 
 ### Safety Features
@@ -154,6 +163,12 @@ dev-cleaner clean --ios --confirm
 - `~/.yarn/cache/`
 - `~/.bun/install/cache/`
 
+### React Native
+- `$TMPDIR/metro-*` - Metro bundler cache
+- `$TMPDIR/haste-map-*` - Haste map cache
+- `$TMPDIR/react-native-packager-cache-*` - RN packager cache
+- `$TMPDIR/react-*` - React Native temp files
+
 ## Development
 
 ```bash
@@ -176,8 +191,10 @@ go test ./...
 - [x] Homebrew distribution
 - [x] Cross-platform support (macOS, Linux)
 - [x] Multi-platform binaries (Intel, ARM64)
+- [x] React Native support (Metro, Haste, packager caches)
 
 ### Planned 🚀
+- [ ] React Native project-specific builds (`--deep` flag)
 - [ ] Config file support (~/.dev-cleaner.yaml)
 - [ ] Progress bars for large operations
 - [ ] Wails GUI (v2.0.0)

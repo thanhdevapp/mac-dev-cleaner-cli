@@ -16,12 +16,13 @@ import (
 )
 
 var (
-	dryRun       bool
-	confirmFlag  bool
-	cleanIOS     bool
-	cleanAndroid bool
-	cleanNode    bool
-	useTUI       bool
+	dryRun          bool
+	confirmFlag     bool
+	cleanIOS        bool
+	cleanAndroid    bool
+	cleanNode       bool
+	cleanReactNative bool
+	useTUI          bool
 )
 
 // cleanCmd represents the clean command
@@ -37,7 +38,8 @@ Examples:
   dev-cleaner clean              # Interactive TUI (dry-run)
   dev-cleaner clean --confirm    # Interactive TUI (actually delete)
   dev-cleaner clean --no-tui     # Simple text mode
-  dev-cleaner clean --ios        # Clean iOS artifacts only`,
+  dev-cleaner clean --ios        # Clean iOS artifacts only
+  dev-cleaner clean --rn --confirm  # Clean React Native caches`,
 	Run: runClean,
 }
 
@@ -49,6 +51,8 @@ func init() {
 	cleanCmd.Flags().BoolVar(&cleanIOS, "ios", false, "Clean iOS/Xcode artifacts only")
 	cleanCmd.Flags().BoolVar(&cleanAndroid, "android", false, "Clean Android/Gradle artifacts only")
 	cleanCmd.Flags().BoolVar(&cleanNode, "node", false, "Clean Node.js artifacts only")
+	cleanCmd.Flags().BoolVar(&cleanReactNative, "react-native", false, "Clean React Native caches")
+	cleanCmd.Flags().BoolVar(&cleanReactNative, "rn", false, "Alias for --react-native")
 	cleanCmd.Flags().BoolVar(&useTUI, "tui", true, "Use interactive TUI mode (default)")
 	cleanCmd.Flags().BoolP("no-tui", "T", false, "Disable TUI, use simple text mode")
 }
@@ -76,14 +80,16 @@ func runClean(cmd *cobra.Command, args []string) {
 		MaxDepth: 3,
 	}
 
-	if cleanIOS || cleanAndroid || cleanNode {
+	if cleanIOS || cleanAndroid || cleanNode || cleanReactNative {
 		opts.IncludeXcode = cleanIOS
 		opts.IncludeAndroid = cleanAndroid
 		opts.IncludeNode = cleanNode
+		opts.IncludeReactNative = cleanReactNative
 	} else {
 		opts.IncludeXcode = true
 		opts.IncludeAndroid = true
 		opts.IncludeNode = true
+		opts.IncludeReactNative = true
 	}
 
 	ui.PrintHeader("Scanning for development artifacts...")

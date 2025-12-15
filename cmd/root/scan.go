@@ -12,11 +12,12 @@ import (
 )
 
 var (
-	scanIOS     bool
-	scanAndroid bool
-	scanNode    bool
-	scanAll     bool
-	scanTUI     bool
+	scanIOS         bool
+	scanAndroid     bool
+	scanNode        bool
+	scanReactNative bool
+	scanAll         bool
+	scanTUI         bool
 )
 
 // scanCmd represents the scan command
@@ -31,7 +32,9 @@ Use --no-tui for simple text output.
 Examples:
   dev-cleaner scan              # Scan + TUI (default)
   dev-cleaner scan --no-tui     # Scan + text output
-  dev-cleaner scan --ios        # Scan iOS/Xcode only`,
+  dev-cleaner scan --ios        # Scan iOS/Xcode only
+  dev-cleaner scan --rn         # Scan React Native caches
+  dev-cleaner scan --rn --ios   # Combine flags for RN projects`,
 	Run: runScan,
 }
 
@@ -41,6 +44,8 @@ func init() {
 	scanCmd.Flags().BoolVar(&scanIOS, "ios", false, "Scan iOS/Xcode artifacts only")
 	scanCmd.Flags().BoolVar(&scanAndroid, "android", false, "Scan Android/Gradle artifacts only")
 	scanCmd.Flags().BoolVar(&scanNode, "node", false, "Scan Node.js artifacts only")
+	scanCmd.Flags().BoolVar(&scanReactNative, "react-native", false, "Scan React Native caches")
+	scanCmd.Flags().BoolVar(&scanReactNative, "rn", false, "Alias for --react-native")
 	scanCmd.Flags().BoolVar(&scanAll, "all", true, "Scan all categories (default)")
 	scanCmd.Flags().BoolVar(&scanTUI, "tui", true, "Launch interactive TUI (default)")
 	scanCmd.Flags().BoolP("no-tui", "T", false, "Disable TUI, show text output")
@@ -59,15 +64,17 @@ func runScan(cmd *cobra.Command, args []string) {
 	}
 
 	// If any specific flag is set, use only those
-	if scanIOS || scanAndroid || scanNode {
+	if scanIOS || scanAndroid || scanNode || scanReactNative {
 		opts.IncludeXcode = scanIOS
 		opts.IncludeAndroid = scanAndroid
 		opts.IncludeNode = scanNode
+		opts.IncludeReactNative = scanReactNative
 	} else {
 		// Default: scan all
 		opts.IncludeXcode = true
 		opts.IncludeAndroid = true
 		opts.IncludeNode = true
+		opts.IncludeReactNative = true
 	}
 
 	ui.PrintHeader("Scanning for development artifacts...")
