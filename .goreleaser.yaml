@@ -52,7 +52,7 @@ brews:
     commit_author:
       name: goreleaserbot
       email: bot@goreleaser.com
-    homepage: "https://github.com/thanhdevapp/dev-cleaner"
+    homepage: "https://github.com/thanhdevapp/mac-dev-cleaner-cli"
     description: "Clean development artifacts on macOS - Xcode, Gradle, node_modules"
     license: "MIT"
     install: |
@@ -63,7 +63,7 @@ brews:
 release:
   github:
     owner: thanhdevapp
-    name: dev-cleaner
+    name: mac-dev-cleaner-cli
   draft: false
   prerelease: auto
   name_template: "v{{.Version}}"

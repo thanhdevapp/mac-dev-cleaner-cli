@@ -150,6 +150,17 @@ func (s *Scanner) ScanAll(opts types.ScanOptions) ([]types.ScanResult, error) {
 		}()
 	}
 
+	if opts.IncludeReactNative {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			rnResults := s.ScanReactNative()
+			mu.Lock()
+			results = append(results, rnResults...)
+			mu.Unlock()
+		}()
+	}
+
 	wg.Wait()
 	return results, nil
 }

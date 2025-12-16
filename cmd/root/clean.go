@@ -16,19 +16,20 @@ import (
 )
 
 var (
-	dryRun        bool
-	confirmFlag   bool
-	cleanIOS      bool
-	cleanAndroid  bool
-	cleanNode     bool
-	cleanFlutter  bool
-	cleanPython   bool
-	cleanRust     bool
-	cleanGo       bool
-	cleanHomebrew bool
-	cleanDocker   bool
-	cleanJava     bool
-	useTUI        bool
+	dryRun          bool
+	confirmFlag     bool
+	cleanIOS        bool
+	cleanAndroid    bool
+	cleanNode       bool
+	cleanReactNative bool
+	cleanFlutter    bool
+	cleanPython     bool
+	cleanRust       bool
+	cleanGo         bool
+	cleanHomebrew   bool
+	cleanDocker     bool
+	cleanJava       bool
+	useTUI          bool
 )
 
 // cleanCmd represents the clean command
@@ -98,6 +99,8 @@ func init() {
 	cleanCmd.Flags().BoolVar(&cleanIOS, "ios", false, "Clean iOS/Xcode artifacts only")
 	cleanCmd.Flags().BoolVar(&cleanAndroid, "android", false, "Clean Android/Gradle artifacts only")
 	cleanCmd.Flags().BoolVar(&cleanNode, "node", false, "Clean Node.js artifacts only")
+	cleanCmd.Flags().BoolVar(&cleanReactNative, "react-native", false, "Clean React Native caches")
+	cleanCmd.Flags().BoolVar(&cleanReactNative, "rn", false, "Alias for --react-native")
 	cleanCmd.Flags().BoolVar(&cleanFlutter, "flutter", false, "Clean Flutter/Dart artifacts only")
 	cleanCmd.Flags().BoolVar(&cleanPython, "python", false, "Clean Python caches")
 	cleanCmd.Flags().BoolVar(&cleanRust, "rust", false, "Clean Rust/Cargo caches")
@@ -132,14 +135,15 @@ func runClean(cmd *cobra.Command, args []string) {
 		MaxDepth: 3,
 	}
 
-	specificFlagSet := cleanIOS || cleanAndroid || cleanNode || cleanFlutter ||
-		cleanPython || cleanRust || cleanGo || cleanHomebrew ||
-		cleanDocker || cleanJava
+	specificFlagSet := cleanIOS || cleanAndroid || cleanNode || cleanReactNative ||
+		cleanFlutter || cleanPython || cleanRust || cleanGo ||
+		cleanHomebrew || cleanDocker || cleanJava
 
 	if specificFlagSet {
 		opts.IncludeXcode = cleanIOS
 		opts.IncludeAndroid = cleanAndroid
 		opts.IncludeNode = cleanNode
+		opts.IncludeReactNative = cleanReactNative
 		opts.IncludeFlutter = cleanFlutter
 		opts.IncludePython = cleanPython
 		opts.IncludeRust = cleanRust

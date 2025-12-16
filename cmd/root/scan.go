@@ -12,18 +12,19 @@ import (
 )
 
 var (
-	scanIOS      bool
-	scanAndroid  bool
-	scanNode     bool
-	scanFlutter  bool
-	scanPython   bool
-	scanRust     bool
-	scanGo       bool
-	scanHomebrew bool
-	scanDocker   bool
-	scanJava     bool
-	scanAll      bool
-	scanTUI      bool
+	scanIOS         bool
+	scanAndroid     bool
+	scanNode        bool
+	scanReactNative bool
+	scanFlutter     bool
+	scanPython      bool
+	scanRust        bool
+	scanGo          bool
+	scanHomebrew    bool
+	scanDocker      bool
+	scanJava        bool
+	scanAll         bool
+	scanTUI         bool
 )
 
 // scanCmd represents the scan command
@@ -40,6 +41,7 @@ Categories Scanned:
   • Xcode (DerivedData, Archives, CoreSimulator, CocoaPods)
   • Android (Gradle caches, SDK system images)
   • Node.js (node_modules, npm/yarn/pnpm/bun caches)
+  • React Native (metro cache, gradle, build artifacts)
   • Flutter (build artifacts, .pub-cache, .dart_tool)
   • Python (pip/poetry/uv caches, venv, __pycache__)
   • Rust (Cargo registry/git, target directories)
@@ -53,6 +55,7 @@ Examples:
   dev-cleaner scan --ios              # Scan iOS/Xcode only
   dev-cleaner scan --android          # Scan Android only
   dev-cleaner scan --node             # Scan Node.js only
+  dev-cleaner scan --rn               # Scan React Native only
   dev-cleaner scan --flutter          # Scan Flutter only
   dev-cleaner scan --python           # Scan Python only
   dev-cleaner scan --rust             # Scan Rust/Cargo only
@@ -66,6 +69,7 @@ Flags:
   --ios             Scan iOS/Xcode artifacts only
   --android         Scan Android/Gradle artifacts only
   --node            Scan Node.js artifacts only
+  --rn              Scan React Native caches (metro, gradle, builds)
   --flutter         Scan Flutter/Dart artifacts only
   --python          Scan Python caches and virtualenvs
   --rust            Scan Rust/Cargo caches and targets
@@ -92,6 +96,8 @@ func init() {
 	scanCmd.Flags().BoolVar(&scanIOS, "ios", false, "Scan iOS/Xcode artifacts only")
 	scanCmd.Flags().BoolVar(&scanAndroid, "android", false, "Scan Android/Gradle artifacts only")
 	scanCmd.Flags().BoolVar(&scanNode, "node", false, "Scan Node.js artifacts only")
+	scanCmd.Flags().BoolVar(&scanReactNative, "react-native", false, "Scan React Native caches")
+	scanCmd.Flags().BoolVar(&scanReactNative, "rn", false, "Alias for --react-native")
 	scanCmd.Flags().BoolVar(&scanFlutter, "flutter", false, "Scan Flutter/Dart artifacts only")
 	scanCmd.Flags().BoolVar(&scanPython, "python", false, "Scan Python caches (pip, poetry, venv, __pycache__)")
 	scanCmd.Flags().BoolVar(&scanRust, "rust", false, "Scan Rust/Cargo caches and target directories")
@@ -117,14 +123,15 @@ func runScan(cmd *cobra.Command, args []string) {
 	}
 
 	// If any specific flag is set, use only those
-	specificFlagSet := scanIOS || scanAndroid || scanNode || scanFlutter ||
-		scanPython || scanRust || scanGo || scanHomebrew ||
-		scanDocker || scanJava
+	specificFlagSet := scanIOS || scanAndroid || scanNode || scanReactNative ||
+		scanFlutter || scanPython || scanRust || scanGo ||
+		scanHomebrew || scanDocker || scanJava
 
 	if specificFlagSet {
 		opts.IncludeXcode = scanIOS
 		opts.IncludeAndroid = scanAndroid
 		opts.IncludeNode = scanNode
+		opts.IncludeReactNative = scanReactNative
 		opts.IncludeFlutter = scanFlutter
 		opts.IncludePython = scanPython
 		opts.IncludeRust = scanRust

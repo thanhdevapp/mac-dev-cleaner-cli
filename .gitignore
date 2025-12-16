@@ -76,11 +76,16 @@ dev-cleaner
 .claude/settings.bak.json
 .claude
 CLAUDE.md
-# plans
-# docs
+
+# Project-specific
 design-mockups
 /plans/templates/
+
+# IDE
 /.idea/git_toolbox_prj.xml
 /.idea/mac-dev-cleaner-cli.iml
 /.idea/modules.xml
 /.idea/vcs.xml
+
+# Frontend node_modules (for Wails GUI)
+frontend/node_modules
