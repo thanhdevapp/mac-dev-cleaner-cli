@@ -78,7 +78,7 @@ function App() {
 
   return (
     <ThemeProvider defaultTheme="system">
-      <div className="flex h-screen flex-col overflow-hidden">
+      <div className="flex h-screen flex-col overflow-hidden pt-[52px]">
         <Toolbar />
         <div className="flex flex-1 overflow-hidden">
           {/* Sidebar */}
