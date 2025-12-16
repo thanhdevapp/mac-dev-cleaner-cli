@@ -10,7 +10,7 @@ import (
 
 var (
 	// Version is set at build time
-	Version = "dev"
+	Version = "1.0.1"
 )
 
 // rootCmd represents the base command
