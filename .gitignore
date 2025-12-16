@@ -58,7 +58,6 @@ GoogleService-Info.plist
 
 repomix-output.xml
 .serena/cache
-plans/**/*
 !plans/templates/*
 screenshots/*
 docs/screenshots/*
@@ -77,6 +76,11 @@ dev-cleaner
 .claude/settings.bak.json
 .claude
 CLAUDE.md
-plans
-docs
+# plans
+# docs
 design-mockups
+/plans/templates/
+/.idea/git_toolbox_prj.xml
+/.idea/mac-dev-cleaner-cli.iml
+/.idea/modules.xml
+/.idea/vcs.xml

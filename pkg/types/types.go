@@ -5,10 +5,17 @@ package types
 type CleanTargetType string
 
 const (
-	TypeXcode   CleanTargetType = "xcode"
-	TypeAndroid CleanTargetType = "android"
-	TypeNode    CleanTargetType = "node"
-	TypeCache   CleanTargetType = "cache"
+	TypeXcode    CleanTargetType = "xcode"
+	TypeAndroid  CleanTargetType = "android"
+	TypeNode     CleanTargetType = "node"
+	TypeFlutter  CleanTargetType = "flutter"
+	TypeCache    CleanTargetType = "cache"
+	TypePython   CleanTargetType = "python"
+	TypeRust     CleanTargetType = "rust"
+	TypeGo       CleanTargetType = "go"
+	TypeHomebrew CleanTargetType = "homebrew"
+	TypeDocker   CleanTargetType = "docker"
+	TypeJava     CleanTargetType = "java"
 )
 
 // ScanResult represents a single scannable/cleanable directory
@@ -22,12 +29,19 @@ type ScanResult struct {
 
 // ScanOptions controls scanning behavior
 type ScanOptions struct {
-	IncludeXcode   bool
-	IncludeAndroid bool
-	IncludeNode    bool
-	IncludeCache   bool
-	MaxDepth       int
-	ProjectRoot    string // Optional: scan from specific root
+	IncludeXcode    bool
+	IncludeAndroid  bool
+	IncludeNode     bool
+	IncludeFlutter  bool
+	IncludeCache    bool
+	IncludePython   bool
+	IncludeRust     bool
+	IncludeGo       bool
+	IncludeHomebrew bool
+	IncludeDocker   bool
+	IncludeJava     bool
+	MaxDepth        int
+	ProjectRoot     string // Optional: scan from specific root
 }
 
 // CleanOptions controls cleaning behavior
@@ -40,10 +54,17 @@ type CleanOptions struct {
 // DefaultScanOptions returns options with all categories enabled
 func DefaultScanOptions() ScanOptions {
 	return ScanOptions{
-		IncludeXcode:   true,
-		IncludeAndroid: true,
-		IncludeNode:    true,
-		IncludeCache:   true,
-		MaxDepth:       3,
+		IncludeXcode:    true,
+		IncludeAndroid:  true,
+		IncludeNode:     true,
+		IncludeFlutter:  true,
+		IncludeCache:    true,
+		IncludePython:   true,
+		IncludeRust:     true,
+		IncludeGo:       true,
+		IncludeHomebrew: true,
+		IncludeDocker:   true,
+		IncludeJava:     true,
+		MaxDepth:        3,
 	}
 }
