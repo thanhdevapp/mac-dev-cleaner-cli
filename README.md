@@ -4,6 +4,8 @@
 
 [![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat-square&logo=go)](https://golang.org/)
 [![Release](https://img.shields.io/github/v/release/thanhdevapp/mac-dev-cleaner-cli?style=flat-square)](https://github.com/thanhdevapp/mac-dev-cleaner-cli/releases)
+[![CI](https://img.shields.io/github/actions/workflow/status/thanhdevapp/mac-dev-cleaner-cli/ci.yml?branch=dev-mvp&style=flat-square&label=CI)](https://github.com/thanhdevapp/mac-dev-cleaner-cli/actions/workflows/ci.yml)
+[![codecov](https://img.shields.io/codecov/c/github/thanhdevapp/mac-dev-cleaner-cli?style=flat-square&token=YOUR_CODECOV_TOKEN)](https://codecov.io/gh/thanhdevapp/mac-dev-cleaner-cli)
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
 
 ## Overview
