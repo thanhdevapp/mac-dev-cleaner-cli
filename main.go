@@ -1,3 +1,6 @@
+//go:build wails
+// +build wails
+
 package main
 
 import (
