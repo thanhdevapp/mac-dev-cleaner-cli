@@ -1,0 +1,124 @@
+name: Release GUI
+
+on:
+  push:
+    tags:
+      - 'v*-gui'  # Trigger on tags like v1.0.2-gui
+  workflow_dispatch:  # Allow manual trigger
+    inputs:
+      version:
+        description: 'Version number (e.g., 1.0.2)'
+        required: true
+        default: '1.0.2'
+
+permissions:
+  contents: write
+
+jobs:
+  build-macos:
+    name: Build macOS App
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install Wails CLI
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+      - name: Install frontend dependencies
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: Build Wails App (macOS ARM64)
+        run: |
+          ~/go/bin/wails build -platform darwin/arm64
+          echo "✅ Built ARM64 app"
+
+      - name: Build Wails App (macOS AMD64)
+        run: |
+          ~/go/bin/wails build -platform darwin/amd64 -o "Mac Dev Cleaner-amd64"
+          echo "✅ Built AMD64 app"
+
+      - name: Get version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            # Extract version from tag (v1.0.2-gui -> 1.0.2)
+            VERSION=$(echo "${GITHUB_REF#refs/tags/v}" | sed 's/-gui$//')
+            echo "version=$VERSION" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create DMG (ARM64)
+        run: |
+          cd build/bin
+          # Create DMG using hdiutil (built-in macOS)
+          hdiutil create \
+            -volname "Mac Dev Cleaner" \
+            -srcfolder "Mac Dev Cleaner.app" \
+            -ov -format UDZO \
+            "Mac-Dev-Cleaner-${{ steps.version.outputs.version }}-arm64.dmg"
+          echo "✅ Created ARM64 DMG"
+
+      - name: Create DMG (AMD64)
+        run: |
+          cd build/bin
+          # Rename AMD64 app directory if exists
+          if [ -d "Mac Dev Cleaner-amd64.app" ]; then
+            hdiutil create \
+              -volname "Mac Dev Cleaner" \
+              -srcfolder "Mac Dev Cleaner-amd64.app" \
+              -ov -format UDZO \
+              "Mac-Dev-Cleaner-${{ steps.version.outputs.version }}-amd64.dmg"
+            echo "✅ Created AMD64 DMG"
+          fi
+
+      - name: List build artifacts
+        run: |
+          ls -la build/bin/
+          ls -la build/bin/*.dmg || true
+
+      - name: Upload DMG artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-dmg
+          path: build/bin/*.dmg
+          retention-days: 7
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          name: "Mac Dev Cleaner GUI v${{ steps.version.outputs.version }}"
+          body: |
+            ## Mac Dev Cleaner GUI v${{ steps.version.outputs.version }}
+            
+            ### Downloads
+            - **Apple Silicon (M1/M2/M3)**: `Mac-Dev-Cleaner-${{ steps.version.outputs.version }}-arm64.dmg`
+            - **Intel Mac**: `Mac-Dev-Cleaner-${{ steps.version.outputs.version }}-amd64.dmg`
+            
+            ### Installation
+            1. Download the appropriate DMG for your Mac
+            2. Open the DMG file
+            3. Drag "Mac Dev Cleaner" to Applications folder
+            4. Launch from Applications
+            
+            ### Note
+            On first launch, you may need to right-click and select "Open" to bypass Gatekeeper.
+          files: |
+            build/bin/*.dmg
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

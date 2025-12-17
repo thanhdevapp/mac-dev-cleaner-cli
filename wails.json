@@ -1,6 +1,6 @@
 {
   "name": "Mac Dev Cleaner",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "author": {
     "name": "thanhdevapp",
     "email": "thanhdevapp@gmail.com"
@@ -11,5 +11,6 @@
   "frontend:install": "npm install",
   "frontend:build": "npm run build",
   "frontend:dev:watcher": "npm run dev",
-  "frontend:dir": "./frontend"
+  "frontend:dir": "./frontend",
+  "go:build:tags": "wails"
 }

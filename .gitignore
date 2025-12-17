@@ -21,6 +21,10 @@ bin/
 
 # production
 /build
+# But keep Wails icon and config for CI/CD
+!build/appicon.png
+!build/darwin/
+!build/darwin/**
 
 # misc
 .DS_Store
