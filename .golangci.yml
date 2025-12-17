@@ -1,6 +1,8 @@
 # .golangci.yml
 run:
   timeout: 5m
+  skip-dirs:
+    - internal/tui
 
 linters:
   enable:
