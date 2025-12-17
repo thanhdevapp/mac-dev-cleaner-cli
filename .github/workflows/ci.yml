@@ -8,6 +8,7 @@ on:
 
 jobs:
   # Backend tests (Go)
+  # Frontend tests run locally via pre-push hook, not in CI
   backend:
     name: Backend Tests
     runs-on: ubuntu-latest
@@ -27,66 +28,3 @@ jobs:
 
       - name: Test
         run: go test -v ./...
-
-  # Frontend tests (React + TypeScript)
-  frontend:
-    name: Frontend Tests
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./frontend
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-
-      - name: Install dependencies
-        run: npm install
-
-      - name: Run TypeScript check
-        run: npx tsc --noEmit
-
-      - name: Run tests
-        run: npm run test:run
-
-      - name: Generate coverage report
-        run: npm run test:coverage
-
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
-        with:
-          directory: ./frontend/coverage
-          flags: frontend
-          token: ${{ secrets.CODECOV_TOKEN }}
-          fail_ci_if_error: false
-
-      - name: Upload coverage artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-report
-          path: ./frontend/coverage
-          retention-days: 7
-
-  # Linting - Temporarily disabled due to TUI package linting issues
-  # TODO: Re-enable after fixing TUI linting or removing TUI package
-  # lint:
-  #   name: Go Lint
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v4
-
-  #     - name: Set up Go
-  #       uses: actions/setup-go@v5
-  #       with:
-  #         go-version: '1.24'
-
-  #     - name: Create dummy frontend directory
-  #       run: mkdir -p frontend/dist && echo "CLI build - frontend not included" > frontend/dist/README.txt
-
-  #     - name: golangci-lint
-  #       uses: golangci/golangci-lint-action@v3
-  #       with:
-  #         version: latest
