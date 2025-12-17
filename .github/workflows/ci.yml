@@ -17,10 +17,13 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.21'
+          go-version: '1.24'
+
+      - name: Create dummy frontend directory
+        run: mkdir -p frontend/dist && touch frontend/dist/.gitkeep
 
       - name: Build
-        run: go build -v ./...
+        run: go build -v ./cmd/... ./internal/... ./pkg/...
 
       - name: Test
         run: go test -v ./...
@@ -79,7 +82,10 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.21'
+          go-version: '1.24'
+
+      - name: Create dummy frontend directory
+        run: mkdir -p frontend/dist && touch frontend/dist/.gitkeep
 
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v3
