@@ -21,6 +21,10 @@ bin/
 
 # production
 /build
+# But keep Wails icon and config for CI/CD
+!build/appicon.png
+!build/darwin/
+!build/darwin/**
 
 # misc
 .DS_Store
@@ -68,8 +72,10 @@ test-ck
 __pycache__
 prompt.md
 
-# Go binary
-dev-cleaner
+# Go binary (CLI build output)
+/dev-cleaner
+dev-cleaner-test
+dev-cleaner-v*
 
 # Gemini CLI settings (symlink to .claude/.mcp.json)
 .gemini/settings.json

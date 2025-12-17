@@ -10,6 +10,7 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/progress"
 	"github.com/charmbracelet/bubbles/spinner"
+	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/thanhdevapp/dev-cleaner/internal/cleaner"
@@ -40,13 +41,14 @@ type treeState struct {
 
 // Tips array - shown randomly to help users
 var tips = []string{
-	"💡 Tip: Press 'c' to quickly clean the current item without selecting it first",
+	"💡 Tip: Press 'c' to quickly clean ONLY the current item (clears other selections)",
+	"💡 Tip: Select multiple items with Space, then press Enter to clean them all at once",
 	"💡 Tip: Use 'a' to select all items, 'n' to deselect all",
 	"💡 Tip: Press '→' or 'l' to drill down into folders and explore their contents",
 	"💡 Tip: In tree mode, press '←' or 'h' to go back to parent folder",
 	"💡 Tip: Dry-run mode is active by default - your files are safe until you confirm",
 	"💡 Tip: Press '?' anytime to see detailed help and keyboard shortcuts",
-	"💡 Tip: Use Space to toggle individual items, Enter to clean all selected",
+	"💡 Tip: 'c' = quick single clean, Enter = batch clean selected items",
 	"💡 Tip: In tree mode, 'c' lets you delete folders at any level",
 	"💡 Tip: All deletion operations are logged to ~/.dev-cleaner.log",
 	"💡 Tip: Press 'Esc' in tree mode to return to main list",
@@ -104,10 +106,10 @@ var (
 			Bold(true)
 
 	statusCenterStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#F59E0B"))
+				Foreground(lipgloss.Color("#F59E0B"))
 
 	statusRightStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#6B7280"))
+				Foreground(lipgloss.Color("#6B7280"))
 )
 
 // KeyMap defines the key bindings
@@ -215,23 +217,131 @@ type Model struct {
 	savedTreeState *treeState        // Saved tree state for restoration
 
 	// Time tracking
-	startTime   time.Time // Session start time
-	deleteStart time.Time // Delete operation start time
+	startTime      time.Time     // Session start time
+	deleteStart    time.Time     // Delete operation start time
+	deleteDuration time.Duration // Frozen duration when deletion completes
 
 	// Scanning progress
-	scanningCategories []string // Categories being scanned
+	scanningCategories []string        // Categories being scanned
 	scanComplete       map[string]bool // Which categories are complete
-	currentScanning    int // Index of currently scanning category
+	currentScanning    int             // Index of currently scanning category
 
 	// Deletion progress
-	deletingItems    []types.ScanResult    // Items being deleted
-	deleteComplete   map[int]bool          // Which items are complete
-	deleteStatus     map[int]string        // Status for each item (success/error)
-	currentDeleting  int                   // Index of currently deleting item
+	deletingItems   []types.ScanResult // Items being deleted
+	deleteComplete  map[int]bool       // Which items are complete
+	deleteStatus    map[int]string     // Status for each item (success/error)
+	currentDeleting int                // Index of currently deleting item
+	fakeProgress    float64            // Fake progress for smooth animation
 
 	// Help and tips
 	currentTip string // Current random tip to display
 	showHelp   bool   // Whether to show help screen
+
+	// Table view
+	itemsTable table.Model // Table for rendering items list
+	treeTable  table.Model // Table for rendering tree view
+}
+
+// updateTableRows updates the table rows to reflect current selections
+func (m *Model) updateTableRows() {
+	rows := []table.Row{}
+	for i, item := range m.items {
+		checkbox := "[ ]"
+		if m.selected[i] {
+			checkbox = "[✓]"
+		}
+
+		typeBadge := string(item.Type)
+		sizeStr := ui.FormatSize(item.Size)
+
+		rows = append(rows, table.Row{
+			checkbox,
+			typeBadge,
+			sizeStr,
+			item.Name,
+			item.Path, // Full path
+		})
+	}
+	m.itemsTable.SetRows(rows)
+	m.itemsTable.SetCursor(m.cursor)
+}
+
+// updateTreeTableRows updates the tree table rows to reflect current selections
+func (m *Model) updateTreeTableRows() {
+	if m.currentNode == nil || !m.currentNode.HasChildren() {
+		m.treeTable.SetRows([]table.Row{})
+		return
+	}
+
+	rows := []table.Row{}
+	for _, child := range m.currentNode.Children {
+		checkbox := "[ ]"
+		if m.treeSelected[child.Path] {
+			checkbox = "[✓]"
+		}
+
+		// Icon based on type
+		icon := "📄"
+		if child.IsDir {
+			if child.Scanned {
+				icon = "📂"
+			} else {
+				icon = "📁"
+			}
+		}
+
+		sizeStr := ui.FormatSize(child.Size)
+
+		rows = append(rows, table.Row{
+			checkbox,
+			icon,
+			sizeStr,
+			child.Name,
+			child.Path, // Full path
+		})
+	}
+	m.treeTable.SetRows(rows)
+	m.treeTable.SetCursor(m.cursor)
+}
+
+// updateTableColumns updates table column widths based on terminal width
+func (m *Model) updateTableColumns() {
+	if m.width == 0 {
+		return // No width info yet
+	}
+
+	// Fixed column widths: checkbox(3) + category/type(12 or 4) + size(10) + name(30) + borders/padding(~10)
+	fixedWidth := 3 + 12 + 10 + 30 + 10
+	pathWidth := m.width - fixedWidth
+	if pathWidth < 30 {
+		pathWidth = 30 // Minimum path width
+	}
+
+	// Update main table columns
+	mainCols := []table.Column{
+		{Title: "", Width: 3},             // Checkbox
+		{Title: "Category", Width: 12},    // Type badge
+		{Title: "Size", Width: 10},        // Formatted size
+		{Title: "Name", Width: 30},        // Item name
+		{Title: "Path", Width: pathWidth}, // Dynamic path width
+	}
+	m.itemsTable.SetColumns(mainCols)
+
+	// Update tree table columns (slightly different fixed widths)
+	treeFixedWidth := 3 + 4 + 10 + 30 + 10
+	treePathWidth := m.width - treeFixedWidth
+	if treePathWidth < 30 {
+		treePathWidth = 30
+	}
+
+	treeCols := []table.Column{
+		{Title: "", Width: 3},                 // Checkbox
+		{Title: "Type", Width: 4},             // Icon
+		{Title: "Size", Width: 10},            // Formatted size
+		{Title: "Name", Width: 30},            // Item name
+		{Title: "Path", Width: treePathWidth}, // Dynamic path width
+	}
+	m.treeTable.SetColumns(treeCols)
 }
 
 // NewModel creates a new TUI model
@@ -291,14 +401,84 @@ func NewModel(items []types.ScanResult, dryRun bool, version string) Model {
 	// Pick a random tip
 	randomTip := tips[time.Now().UnixNano()%int64(len(tips))]
 
-	return Model{
-		state:              initialState,
-		items:              items,
-		selected:           make(map[int]bool),
-		dryRun:             dryRun,
-		version:            version,
-		spinner:            s,
-		progress:           p,
+	// Create table columns
+	columns := []table.Column{
+		{Title: "", Width: 3},          // Checkbox
+		{Title: "Category", Width: 12}, // Type badge
+		{Title: "Size", Width: 10},     // Formatted size
+		{Title: "Name", Width: 30},     // Item name (shorter to make room for path)
+		{Title: "Path", Width: 50},     // Full path
+	}
+
+	// Create table rows from items
+	rows := []table.Row{}
+	for _, item := range items {
+		checkbox := "[ ]"
+		typeBadge := string(item.Type)
+		sizeStr := ui.FormatSize(item.Size)
+
+		rows = append(rows, table.Row{
+			checkbox,
+			typeBadge,
+			sizeStr,
+			item.Name,
+			item.Path, // Full path
+		})
+	}
+
+	// Initialize table with dynamic height to show all items
+	tableHeight := len(items)
+	if tableHeight < 5 {
+		tableHeight = 5 // Minimum height
+	}
+	if tableHeight > 30 {
+		tableHeight = 30 // Cap at 30 to prevent huge tables
+	}
+	t := table.New(
+		table.WithColumns(columns),
+		table.WithRows(rows),
+		table.WithFocused(true),
+		table.WithHeight(tableHeight),
+	)
+
+	// Apply table styles
+	ts := table.DefaultStyles()
+	ts.Header = ts.Header.
+		BorderStyle(lipgloss.NormalBorder()).
+		BorderForeground(lipgloss.Color("#7C3AED")).
+		BorderBottom(true).
+		Bold(false)
+	ts.Selected = ts.Selected.
+		Foreground(lipgloss.Color("#FFFFFF")).
+		Background(lipgloss.Color("#7C3AED")).
+		Bold(false)
+	t.SetStyles(ts)
+
+	// Create tree table (same columns as main table but with icon instead of type)
+	treeColumns := []table.Column{
+		{Title: "", Width: 3},      // Checkbox
+		{Title: "Type", Width: 4},  // Icon (📁/📂/📄)
+		{Title: "Size", Width: 10}, // Formatted size
+		{Title: "Name", Width: 30}, // Item name (shorter to make room for path)
+		{Title: "Path", Width: 50}, // Full path
+	}
+
+	treeT := table.New(
+		table.WithColumns(treeColumns),
+		table.WithRows([]table.Row{}),
+		table.WithFocused(true),
+		table.WithHeight(20), // Tree view can be taller
+	)
+	treeT.SetStyles(ts)
+
+	m := Model{
+		state:    initialState,
+		items:    items,
+		selected: make(map[int]bool),
+		dryRun:   dryRun,
+		version:  version,
+		spinner:  s,
+		progress: p,
 		// Tree navigation
 		treeMode:     false,
 		nodeStack:    make([]*types.TreeNode, 0),
@@ -319,7 +499,15 @@ func NewModel(items []types.ScanResult, dryRun bool, version string) Model {
 		// Help and tips
 		currentTip: randomTip,
 		showHelp:   false,
+		// Table view
+		itemsTable: t,
+		treeTable:  treeT,
 	}
+
+	// Initialize table rows
+	m.updateTableRows()
+
+	return m
 }
 
 // Init implements tea.Model
@@ -337,6 +525,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 		m.progress.Width = msg.Width - 10
+		m.updateTableColumns() // Update table columns to fit new width
 		return m, nil
 
 	case spinner.TickMsg:
@@ -349,6 +538,32 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.progress = progressModel.(progress.Model)
 		return m, cmd
 
+	case deletionTickMsg:
+		// Keep UI responsive during deletion - tick spinner, update progress, and schedule next tick
+		if m.state == StateDeleting {
+			var spinnerCmd tea.Cmd
+			m.spinner, spinnerCmd = m.spinner.Update(m.spinner.Tick())
+
+			// Increment fake progress for smooth animation (small increments until real progress catches up)
+			targetProgress := float64(m.currentDeleting) / float64(len(m.deletingItems))
+			if m.fakeProgress < targetProgress {
+				m.fakeProgress = targetProgress // Snap to real progress
+			} else if m.fakeProgress < 0.99 && m.fakeProgress < targetProgress+0.05 {
+				// Small fake increment to show activity
+				m.fakeProgress += 0.002
+			}
+
+			// Update progress bar with combined progress
+			displayProgress := m.fakeProgress
+			if m.percent > displayProgress {
+				displayProgress = m.percent
+			}
+			progressCmd := m.progress.SetPercent(displayProgress)
+
+			return m, tea.Batch(spinnerCmd, progressCmd, m.tickDeletion())
+		}
+		return m, nil
+
 	case deleteProgressMsg:
 		m.percent = msg.percent
 		cmd := m.progress.SetPercent(m.percent)
@@ -358,30 +573,62 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Handle based on current state
 		switch m.state {
 		case StateDone:
-			// 'q' to quit, any other key to rescan/return to tree
-			if msg.String() == "q" || msg.String() == "ctrl+c" {
+			switch msg.String() {
+			case "q", "ctrl+c":
+				// Quit application
 				m.quitting = true
 				return m, tea.Quit
-			}
 
-			// Check if we should return to tree mode
-			if m.returnToTree && m.savedTreeState != nil {
-				// Restore tree state
-				m.state = StateTree
-				m.treeMode = true
-				m.currentNode = m.savedTreeState.parentNode
-				m.nodeStack = m.savedTreeState.nodeStack
-				m.cursor = 0 // Reset cursor to top
+			case "r", "enter":
+				// Rescan and refresh results - return to view immediately for better UX
+				// Check if we should return to tree mode
+				if m.returnToTree && m.savedTreeState != nil {
+					// Restore tree state immediately
+					m.state = StateTree
+					m.treeMode = true
+					m.currentNode = m.savedTreeState.parentNode
+					m.nodeStack = m.savedTreeState.nodeStack
+					m.cursor = 0 // Reset cursor to top
+					m.scanning = true
+					m.returnToTree = false
+					m.savedTreeState = nil
+					m.updateTreeTableRows()
+
+					// Trigger rescan in background (non-blocking)
+					return m, m.rescanNode(m.currentNode)
+				}
+
+				// Normal rescan - transition to selecting state immediately
+				m.state = StateSelecting
+				m.results = nil
+				m.err = nil
 				m.scanning = true
-				m.returnToTree = false
-				m.savedTreeState = nil
+				m.updateTableRows()
 
-				// Rescan current node to refresh after deletion
-				return m, m.rescanNode(m.currentNode)
+				// Trigger rescan in background (non-blocking)
+				return m, m.rescanItems()
+
+			case "esc":
+				// Go back to selection without rescanning
+				if m.returnToTree && m.savedTreeState != nil {
+					// Restore tree state without rescanning
+					m.state = StateTree
+					m.treeMode = true
+					m.currentNode = m.savedTreeState.parentNode
+					m.nodeStack = m.savedTreeState.nodeStack
+					m.cursor = m.savedTreeState.cursorPos
+					m.returnToTree = false
+					m.savedTreeState = nil
+					m.updateTreeTableRows()
+					return m, nil
+				}
+
+				// Go back to main list without rescanning
+				m.state = StateSelecting
+				m.results = nil
+				m.err = nil
+				return m, nil
 			}
-
-			// Normal rescan and return to selection
-			return m, m.rescanItems()
 
 		case StateConfirming:
 			switch msg.String() {
@@ -401,13 +648,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.deleteStatus = make(map[int]string)
 				m.currentDeleting = 0
 
-				// Debug: Print to stderr
-				fmt.Fprintf(os.Stderr, "[DEBUG] Starting deletion of %d items\n", len(m.deletingItems))
-
-				// Start deletion with spinner and progress updates
+				// Start deletion with spinner, progress updates, and continuous tick
 				return m, tea.Batch(
 					m.spinner.Tick,
 					m.progress.SetPercent(0),
+					m.tickDeletion(), // Start continuous UI refresh
 					m.performClean(),
 				)
 			case "n", "N", "esc":
@@ -455,23 +700,28 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case key.Matches(msg, keys.Up):
 				if m.cursor > 0 {
 					m.cursor--
+					m.updateTableRows()
 				}
 
 			case key.Matches(msg, keys.Down):
 				if m.cursor < len(m.items)-1 {
 					m.cursor++
+					m.updateTableRows()
 				}
 
 			case key.Matches(msg, keys.Toggle):
 				m.selected[m.cursor] = !m.selected[m.cursor]
+				m.updateTableRows()
 
 			case key.Matches(msg, keys.All):
 				for i := range m.items {
 					m.selected[i] = true
 				}
+				m.updateTableRows()
 
 			case key.Matches(msg, keys.None):
 				m.selected = make(map[int]bool)
+				m.updateTableRows()
 
 			case key.Matches(msg, keys.Confirm):
 				if m.countSelected() > 0 {
@@ -517,6 +767,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			case key.Matches(msg, keys.GoBack):
 				m.goBackInTree()
+				m.updateTreeTableRows()
 				return m, nil
 
 			case key.Matches(msg, keys.DrillDown):
@@ -532,12 +783,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case key.Matches(msg, keys.Up):
 				if m.cursor > 0 {
 					m.cursor--
+					m.updateTreeTableRows()
 				}
 
 			case key.Matches(msg, keys.Down):
 				if m.currentNode != nil && m.currentNode.HasChildren() {
 					if m.cursor < len(m.currentNode.Children)-1 {
 						m.cursor++
+						m.updateTreeTableRows()
 					}
 				}
 
@@ -546,6 +799,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					if m.cursor < len(m.currentNode.Children) {
 						child := m.currentNode.Children[m.cursor]
 						m.treeSelected[child.Path] = !m.treeSelected[child.Path]
+						m.updateTreeTableRows()
 					}
 				}
 
@@ -586,9 +840,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case deleteItemProgressMsg:
-		// Debug
-		fmt.Fprintf(os.Stderr, "[DEBUG] Item %d completed with status: %s\n", msg.index, msg.status)
-
 		// Update item status
 		m.deleteComplete[msg.index] = true
 		if msg.status == "error" {
@@ -603,19 +854,20 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.percent = float64(m.currentDeleting) / float64(len(m.deletingItems))
 		}
 
-		fmt.Fprintf(os.Stderr, "[DEBUG] Progress: %d/%d (%.0f%%)\n", m.currentDeleting, len(m.deletingItems), m.percent*100)
-
 		// Continue with next item or finish
 		return m, tea.Batch(
-			m.spinner.Tick,        // Keep spinner animating
+			m.spinner.Tick, // Keep spinner animating
 			m.progress.SetPercent(m.percent),
-			m.performClean(),      // Delete next item or finish
+			m.performClean(), // Delete next item or finish
 		)
 
 	case cleanResultMsg:
 		m.state = StateDone
 		m.results = msg.results
 		m.err = msg.err
+		// Freeze the deletion duration so timer stops counting
+		m.deleteDuration = time.Since(m.deleteStart)
+		m.percent = 1.0 // Ensure progress shows 100%
 		return m, nil
 
 	case scanNodeMsg:
@@ -629,11 +881,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.nodeStack = make([]*types.TreeNode, 0)
 		}
 		m.cursor = 0
+		m.updateTreeTableRows()
 		return m, nil
 
 	case rescanItemsMsg:
 		if msg.err != nil {
 			m.err = msg.err
+			m.scanning = false
 			return m, nil
 		}
 		// Reset state and show new items
@@ -643,6 +897,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.state = StateSelecting
 		m.results = nil
 		m.err = nil
+		m.scanning = false
+		m.updateTableRows()
 		return m, nil
 
 	case scanProgressMsg:
@@ -659,6 +915,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// If all categories scanned, transition to selecting
 		if m.currentScanning >= len(m.scanningCategories) {
 			m.state = StateSelecting
+			m.updateTableRows()
 			return m, nil
 		}
 
@@ -697,9 +954,19 @@ type scanProgressMsg struct{}
 
 // deleteItemProgressMsg is sent when an item deletion starts/completes
 type deleteItemProgressMsg struct {
-	index   int
-	status  string // "start", "success", "error"
-	err     error
+	index  int
+	status string // "start", "success", "error"
+	err    error
+}
+
+// deletionTickMsg for UI refresh during deletion
+type deletionTickMsg struct{}
+
+// tickDeletion sends periodic UI refresh messages during deletion
+func (m Model) tickDeletion() tea.Cmd {
+	return tea.Tick(time.Millisecond*100, func(t time.Time) tea.Msg {
+		return deletionTickMsg{}
+	})
 }
 
 // tickScanning sends a message to advance scanning animation
@@ -823,6 +1090,7 @@ func (m *Model) drillDownInTree() tea.Cmd {
 	m.nodeStack = append(m.nodeStack, m.currentNode)
 	m.currentNode = selectedNode
 	m.cursor = 0
+	m.updateTreeTableRows()
 
 	return nil
 }
@@ -919,7 +1187,6 @@ func (m Model) findNodeByPath(root *types.TreeNode, path string) *types.TreeNode
 func (m Model) performClean() tea.Cmd {
 	// Check if all items are processed
 	if m.currentDeleting >= len(m.deletingItems) {
-		fmt.Fprintf(os.Stderr, "[DEBUG] All items processed, finishing...\n")
 		// All done, collect results and finish
 		var results []cleaner.CleanResult
 		for i, item := range m.deletingItems {
@@ -944,8 +1211,6 @@ func (m Model) performClean() tea.Cmd {
 	// Delete current item
 	idx := m.currentDeleting
 	item := m.deletingItems[idx]
-
-	fmt.Fprintf(os.Stderr, "[DEBUG] Starting deletion of item %d: %s\n", idx, item.Name)
 
 	return func() tea.Msg {
 		c, err := cleaner.New(m.dryRun)
@@ -1120,43 +1385,13 @@ func (m Model) renderTreeView(b *strings.Builder) string {
 		b.WriteString(" Scanning folder...\n\n")
 	}
 
-	// Children list
+	// Children list - use table
 	if !m.currentNode.HasChildren() {
 		b.WriteString(helpStyle.Render("  (Empty folder)"))
 	} else {
-		for i, child := range m.currentNode.Children {
-			cursor := "  "
-			if i == m.cursor {
-				cursor = cursorStyle.Render("▸ ")
-			}
-
-			checkbox := "[ ]"
-			if m.treeSelected[child.Path] {
-				checkbox = checkboxStyle.Render("[✓]")
-			}
-
-			// Icon based on type and scan status
-			icon := m.getTreeIcon(child)
-
-			// Size with color
-			sizeStr := ui.FormatSize(child.Size)
-			sizeStyle := m.getSizeStyle(child.Size)
-
-			line := fmt.Sprintf("%s%s %s %s  %s",
-				cursor,
-				checkbox,
-				icon,
-				sizeStyle.Render(fmt.Sprintf("%10s", sizeStr)),
-				child.Name,
-			)
-
-			if i == m.cursor {
-				b.WriteString(selectedItemStyle.Render(line))
-			} else {
-				b.WriteString(itemStyle.Render(line))
-			}
-			b.WriteString("\n")
-		}
+		// Render tree table (already updated in Update())
+		b.WriteString(m.treeTable.View())
+		b.WriteString("\n")
 	}
 
 	// Depth info
@@ -1306,77 +1541,100 @@ func (m Model) renderDeleting(b *strings.Builder) string {
 
 // renderConfirmation shows the confirmation dialog
 func (m Model) renderConfirmation(b *strings.Builder) string {
-	selectedCount := m.countSelected()
-	selectedSize := m.selectedSize()
+	// Calculate count and size based on source
+	var selectedCount int
+	var selectedSize int64
 
-	// Confirmation box style
+	// Check if coming from tree mode (has deletingItems)
+	if len(m.deletingItems) > 0 {
+		// Tree mode - calculate from deletingItems
+		selectedCount = len(m.deletingItems)
+		for _, item := range m.deletingItems {
+			selectedSize += item.Size
+		}
+	} else {
+		// Normal selection mode
+		selectedCount = m.countSelected()
+		selectedSize = m.selectedSize()
+	}
+
+	// Confirmation box style - wider to show paths
 	confirmBoxStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color("#F59E0B")).
 		Padding(1, 2).
-		Width(50)
+		Width(80)
 
 	warningStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#F59E0B")).
 		Bold(true)
 
-	confirmMsg := fmt.Sprintf(
-		"%s\n\n"+
-			"  Items: %d\n"+
-			"  Size:  %s\n\n"+
-			"  Press [y] to confirm, [n] to cancel",
-		warningStyle.Render("⚠️  Confirm Deletion"),
-		selectedCount,
-		ui.FormatSize(selectedSize),
-	)
+	pathStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#EF4444"))
 
-	b.WriteString(confirmBoxStyle.Render(confirmMsg))
+	sizeStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#6B7280"))
+
+	var confirmMsg strings.Builder
+	confirmMsg.WriteString(warningStyle.Render("⚠️  Confirm Deletion"))
+	confirmMsg.WriteString("\n\n")
+
+	// Build list of paths to delete
+	confirmMsg.WriteString("  The following items will be PERMANENTLY DELETED:\n\n")
+
+	// Show paths - limit to first 8 items to avoid overflow
+	maxDisplay := 8
+	displayCount := 0
+
+	// Check if coming from tree mode (single item deletion)
+	if len(m.deletingItems) > 0 {
+		// Tree mode - show deletingItems
+		for i, item := range m.deletingItems {
+			if displayCount >= maxDisplay {
+				remaining := len(m.deletingItems) - maxDisplay
+				confirmMsg.WriteString(fmt.Sprintf("  ... and %d more items\n", remaining))
+				break
+			}
+			confirmMsg.WriteString(fmt.Sprintf("  %s %s  %s\n",
+				pathStyle.Render("✗"),
+				sizeStyle.Render(fmt.Sprintf("[%s]", ui.FormatSize(item.Size))),
+				item.Path,
+			))
+			displayCount++
+			_ = i
+		}
+	} else {
+		// Normal selection mode - show selected items
+		for i, item := range m.items {
+			if !m.selected[i] {
+				continue
+			}
+			if displayCount >= maxDisplay {
+				remaining := selectedCount - maxDisplay
+				confirmMsg.WriteString(fmt.Sprintf("  ... and %d more items\n", remaining))
+				break
+			}
+			confirmMsg.WriteString(fmt.Sprintf("  %s %s  %s\n",
+				pathStyle.Render("✗"),
+				sizeStyle.Render(fmt.Sprintf("[%s]", ui.FormatSize(item.Size))),
+				item.Path,
+			))
+			displayCount++
+		}
+	}
+
+	confirmMsg.WriteString(fmt.Sprintf("\n  Total: %d items • %s\n\n", selectedCount, ui.FormatSize(selectedSize)))
+	confirmMsg.WriteString("  Press [y] to confirm, [n] to cancel")
+
+	b.WriteString(confirmBoxStyle.Render(confirmMsg.String()))
 	return b.String()
 }
 
-// renderSelection shows the item selection list
+// renderSelection shows the item selection list using table
 func (m Model) renderSelection(b *strings.Builder) string {
-	// Items list
-	for i, item := range m.items {
-		cursor := "  "
-		if i == m.cursor {
-			cursor = cursorStyle.Render("▸ ")
-		}
-
-		checkbox := "[ ]"
-		if m.selected[i] {
-			checkbox = checkboxStyle.Render("[✓]")
-		}
-
-		// Type badge
-		typeBadge := m.getTypeBadge(item.Type)
-
-		// Size with color
-		sizeStr := ui.FormatSize(item.Size)
-		sizeStyle := lipgloss.NewStyle().Width(10).Align(lipgloss.Right)
-		if item.Size > 1024*1024*1024 {
-			sizeStyle = sizeStyle.Foreground(lipgloss.Color("#EF4444")).Bold(true)
-		} else if item.Size > 100*1024*1024 {
-			sizeStyle = sizeStyle.Foreground(lipgloss.Color("#F59E0B"))
-		} else {
-			sizeStyle = sizeStyle.Foreground(lipgloss.Color("#10B981"))
-		}
-
-		line := fmt.Sprintf("%s%s %s %s  %s",
-			cursor,
-			checkbox,
-			typeBadge,
-			sizeStyle.Render(sizeStr),
-			item.Name,
-		)
-
-		if i == m.cursor {
-			b.WriteString(selectedItemStyle.Render(line))
-		} else {
-			b.WriteString(itemStyle.Render(line))
-		}
-		b.WriteString("\n")
-	}
+	// Render table (already updated in Update())
+	b.WriteString(m.itemsTable.View())
+	b.WriteString("\n")
 
 	// Status bar
 	selectedCount := m.countSelected()
@@ -1481,7 +1739,8 @@ func (m Model) renderHelp(b *strings.Builder) string {
 func (m Model) renderResults(b *strings.Builder) string {
 	if m.err != nil {
 		b.WriteString(errorStyle.Render(fmt.Sprintf("Error: %v", m.err)))
-		b.WriteString("\n\nPress any key to rescan, q to quit.")
+		b.WriteString("\n\n")
+		b.WriteString(helpStyle.Render("r/Enter: Rescan • Esc: Back • q: Quit"))
 		return b.String()
 	}
 
@@ -1508,7 +1767,8 @@ func (m Model) renderResults(b *strings.Builder) string {
 		summary += fmt.Sprintf(" (%s freed)", ui.FormatSize(freedSize))
 	}
 	b.WriteString(successStyle.Render(summary))
-	b.WriteString("\n\nPress any key to rescan, q to quit.")
+	b.WriteString("\n\n")
+	b.WriteString(helpStyle.Render("r/Enter: Rescan • Esc: Back • q: Quit"))
 
 	return b.String()
 }
@@ -1599,7 +1859,6 @@ func (m Model) renderStatusBar() string {
 			center = "No items selected"
 		}
 
-
 	case StateTree:
 		// Left: State + Current path
 		if m.currentNode != nil {
@@ -1667,8 +1926,8 @@ func (m Model) renderStatusBar() string {
 			center = fmt.Sprintf("✓ %d items • %s freed", successCount, ui.FormatSize(freedSize))
 		}
 
-		// Right: Total time + hints
-		right = fmt.Sprintf("Total: %ds • any key:rescan q:quit", int(elapsed.Seconds()))
+		// Right: Deletion time (frozen when completed) + hints
+		right = fmt.Sprintf("Total: %ds • r:rescan esc:back q:quit", int(m.deleteDuration.Seconds()))
 	}
 
 	// Build status bar with sections

@@ -1,13 +1,15 @@
-# Mac Dev Cleaner CLI
+# Mac Dev Cleaner
 
 > 🧹 Clean development artifacts on macOS - free up disk space fast!
 
 [![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat-square&logo=go)](https://golang.org/)
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
 
+**Available as both CLI and beautiful native GUI app!**
+
 ## Overview
 
-Mac Dev Cleaner is a CLI tool that helps developers reclaim disk space by removing:
+Mac Dev Cleaner helps developers reclaim disk space by removing:
 
 - **Xcode** - DerivedData, Archives, Caches
 - **Android** - Gradle caches, SDK caches
@@ -20,25 +22,65 @@ Mac Dev Cleaner is a CLI tool that helps developers reclaim disk space by removi
 - **Docker** - unused images, containers, volumes, build cache
 - **Java/Kotlin** - Maven .m2, Gradle caches, build directories
 
+## Screenshots
+
+### GUI App
+
+![Mac Dev Cleaner GUI](screens/image.png)
+
+**Features:**
+- 🎨 **Beautiful Native Interface** - Modern dark mode UI built with Wails
+- 📊 **Multiple Views** - Switch between List, Treemap, and Split view
+- 🔍 **Smart Categorization** - Filter by development ecosystem (Xcode, Android, Node.js, etc.)
+- 📈 **Visual Size Analysis** - Interactive treemap shows space usage at a glance
+- ⚡ **Real-time Scan** - Fast parallel scanning with progress indicators
+- 🎯 **Selective Cleaning** - Pick exactly what to delete with checkboxes
+- 💾 **Safe Deletion** - Confirmation dialogs prevent accidents
+- 🔄 **Auto-Update** - Check for new versions automatically
+
+**Download DMG:**
+- [Apple Silicon (M1/M2/M3)](https://github.com/thanhdevapp/mac-dev-cleaner-cli/releases/latest/download/mac-dev-cleaner-darwin-arm64.dmg)
+- [Intel](https://github.com/thanhdevapp/mac-dev-cleaner-cli/releases/latest/download/mac-dev-cleaner-darwin-amd64.dmg)
+
 ## Installation
 
-### Homebrew (Coming Soon)
+### GUI App (Recommended for Most Users)
 
+Download and install the native app:
+- [Apple Silicon DMG](https://github.com/thanhdevapp/mac-dev-cleaner-cli/releases/latest/download/mac-dev-cleaner-darwin-arm64.dmg)
+- [Intel DMG](https://github.com/thanhdevapp/mac-dev-cleaner-cli/releases/latest/download/mac-dev-cleaner-darwin-amd64.dmg)
+
+### CLI Tool
+
+**Homebrew:**
 ```bash
 brew tap thanhdevapp/tools
 brew install dev-cleaner
 ```
 
-### From Source
+**One-line installer:**
+```bash
+curl -fsSL https://raw.githubusercontent.com/thanhdevapp/mac-dev-cleaner-cli/dev-mvp/install.sh | bash
+```
+
+### More Options
+
+See [INSTALL.md](INSTALL.md) for:
+- Direct binary downloads (macOS ARM/Intel, Linux)
+- Build from source instructions
+- Advanced configuration
+- Troubleshooting
+
+### Quick Build from Source
 
 ```bash
-git clone https://github.com/thanhdevapp/dev-cleaner.git
-cd dev-cleaner
-go build -o dev-cleaner .
+git clone https://github.com/thanhdevapp/mac-dev-cleaner-cli.git
+cd mac-dev-cleaner-cli
+go build -o dev-cleaner ./cmd/dev-cleaner
 sudo mv dev-cleaner /usr/local/bin/
 ```
 
-## Usage
+## CLI Usage
 
 ### Scan for Cleanable Items
 

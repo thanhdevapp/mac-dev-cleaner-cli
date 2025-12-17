@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - 'v*'
+      - '!v*-gui'  # Exclude GUI tags - they use release-gui.yml
 
 permissions:
   contents: write

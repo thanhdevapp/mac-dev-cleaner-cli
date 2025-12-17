@@ -110,7 +110,6 @@ export function TreemapChart({ items, selectedPaths, onToggleSelection, classNam
   const treemapItems = useMemo(() => {
     return items
       .sort((a, b) => b.size - a.size)
-      .slice(0, 50) // Top 50 items
       .map(item => ({
         name: item.name || item.path.split('/').pop() || 'Unknown',
         size: item.size,
@@ -129,7 +128,7 @@ export function TreemapChart({ items, selectedPaths, onToggleSelection, classNam
       {/* Header */}
       <div className="flex justify-between items-center px-4 py-2 border-b border-border bg-muted/30 shrink-0">
         <span className="text-sm text-muted-foreground">
-          Showing top {treemapItems.length} of {items.length} items
+          Showing {items.length} items
         </span>
         {selectedPaths.length > 0 && (
           <span className="text-sm text-green-500 font-medium">

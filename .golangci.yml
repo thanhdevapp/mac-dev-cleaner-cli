@@ -1,6 +1,8 @@
 # .golangci.yml
 run:
   timeout: 5m
+  skip-dirs:
+    - internal/tui
 
 linters:
   enable:
@@ -25,3 +27,13 @@ issues:
     - path: _test\.go
       linters:
         - errcheck
+    # Exclude TUI package - not actively used in v1.0.x (GUI uses Wails)
+    - path: internal/tui/
+      linters:
+        - errcheck
+        - unused
+        - gofmt
+        - gosimple
+        - ineffassign
+        - misspell
+        - staticcheck

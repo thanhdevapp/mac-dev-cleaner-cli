@@ -1,16 +1,19 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { ThemeProvider } from '@/components/theme-provider'
 import { Toolbar } from '@/components/toolbar'
 import { Sidebar } from '@/components/sidebar'
 import { ScanResults } from '@/components/scan-results'
 import { SettingsDialog } from '@/components/settings-dialog'
+import { UpdateNotification } from '@/components/update-notification'
 import { Toaster } from '@/components/ui/toaster'
 import { useUIStore } from '@/store/ui-store'
 import { Scan, GetSettings } from '../wailsjs/go/main/App'
-import { types, services } from '../wailsjs/go/models'
+import { services } from '../wailsjs/go/models'
+import { createDefaultScanOptions } from '@/lib/scan-utils'
 
 function App() {
   const { isSettingsOpen, toggleSettings, setScanning, setViewMode } = useUIStore()
+  const [checkForUpdates, setCheckForUpdates] = useState(false)
 
 
   // Load settings and apply them on app mount
@@ -27,20 +30,18 @@ function App() {
           console.log('Applied default view:', settings.defaultView)
         }
 
+        // Check for updates if enabled
+        if (settings.checkAutoUpdate) {
+          console.log('Auto-update check enabled, will check for updates...')
+          setCheckForUpdates(true)
+        }
+
         // Auto-scan if setting is enabled
         if (settings.autoScan) {
           console.log('Auto-scan enabled, starting scan...')
           setScanning(true)
           try {
-            const opts = new types.ScanOptions({
-              IncludeXcode: true,
-              IncludeAndroid: true,
-              IncludeNode: true,
-              IncludeReactNative: true,
-              IncludeCache: true,
-              ProjectRoot: '/Users',
-              MaxDepth: settings.maxDepth || 5
-            })
+            const opts = createDefaultScanOptions(settings)
             await Scan(opts)
             console.log('Auto-scan complete')
           } catch (error) {
@@ -56,14 +57,7 @@ function App() {
         // If settings fail, scan anyway with defaults
         setScanning(true)
         try {
-          const opts = new types.ScanOptions({
-            IncludeXcode: true,
-            IncludeAndroid: true,
-            IncludeNode: true,
-            IncludeReactNative: true,
-            IncludeCache: true,
-            ProjectRoot: '/Users'
-          })
+          const opts = createDefaultScanOptions()
           await Scan(opts)
         } catch (scanError) {
           console.error('Fallback scan failed:', scanError)
@@ -96,6 +90,9 @@ function App() {
           open={isSettingsOpen}
           onOpenChange={toggleSettings}
         />
+
+        {/* Update Notification */}
+        <UpdateNotification checkOnMount={checkForUpdates} />
       </div>
     </ThemeProvider>
   )

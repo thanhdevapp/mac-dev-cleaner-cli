@@ -1,6 +1,3 @@
-//go:build wails
-// +build wails
-
 package main
 
 import (
@@ -18,6 +15,7 @@ type App struct {
 	treeService     *services.TreeService
 	cleanService    *services.CleanService
 	settingsService *services.SettingsService
+	updateService   *services.UpdateService
 }
 
 func NewApp() *App {
@@ -52,6 +50,10 @@ func NewApp() *App {
 	a.settingsService = services.NewSettingsService()
 	log.Println("✅ SettingsService initialized")
 
+	// Initialize update service
+	a.updateService = services.NewUpdateService("1.0.2", "thanhdevapp", "mac-dev-cleaner-cli")
+	log.Println("✅ UpdateService initialized")
+
 	log.Println("🎉 All services initialized successfully!")
 	return a
 }
@@ -68,6 +70,9 @@ func (a *App) startup(ctx context.Context) {
 	}
 	if a.cleanService != nil {
 		a.cleanService.SetContext(ctx)
+	}
+	if a.updateService != nil {
+		a.updateService.SetContext(ctx)
 	}
 }
 
@@ -139,4 +144,18 @@ func (a *App) UpdateSettings(settings services.Settings) error {
 		return nil
 	}
 	return a.settingsService.Update(settings)
+}
+
+// UpdateService methods exposed to frontend
+func (a *App) CheckForUpdates() (*services.UpdateInfo, error) {
+	if a.updateService == nil {
+		return nil, nil
+	}
+	return a.updateService.CheckForUpdates()
+}
+
+func (a *App) ClearUpdateCache() {
+	if a.updateService != nil {
+		a.updateService.ClearCache()
+	}
 }

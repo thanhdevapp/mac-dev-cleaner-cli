@@ -25,6 +25,30 @@ brew update
 brew upgrade dev-cleaner
 ```
 
+### One-Line Installer (macOS & Linux)
+
+**Automatic installation:**
+```bash
+curl -fsSL https://raw.githubusercontent.com/thanhdevapp/mac-dev-cleaner-cli/dev-mvp/install.sh | bash
+```
+
+**What it does:**
+- Detects your OS and architecture automatically
+- Downloads the latest release binary
+- Installs to `/usr/local/bin/`
+- Verifies installation
+
+**Manual review before running:**
+```bash
+# View the script first
+curl -fsSL https://raw.githubusercontent.com/thanhdevapp/mac-dev-cleaner-cli/dev-mvp/install.sh
+
+# Then run it
+curl -fsSL https://raw.githubusercontent.com/thanhdevapp/mac-dev-cleaner-cli/dev-mvp/install.sh | bash
+```
+
+> **Note:** After migrating to `main` branch (see BRANCHING_STRATEGY.md), URLs will use `/main/` instead of `/dev-mvp/`
+
 ---
 
 ## Download Binaries

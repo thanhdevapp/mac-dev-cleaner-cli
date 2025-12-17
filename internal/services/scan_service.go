@@ -66,7 +66,20 @@ func (s *ScanService) Scan(opts types.ScanOptions) error {
 		return err
 	}
 
-	fmt.Printf("📊 Scan found %d results\n", len(results))
+	fmt.Printf("📊 Scan found %d results (before deduplication)\n", len(results))
+
+	// Deduplicate results by path
+	seen := make(map[string]bool)
+	dedupedResults := make([]types.ScanResult, 0, len(results))
+	for _, result := range results {
+		if !seen[result.Path] {
+			seen[result.Path] = true
+			dedupedResults = append(dedupedResults, result)
+		}
+	}
+	results = dedupedResults
+
+	fmt.Printf("📊 Scan found %d results (after deduplication)\n", len(results))
 
 	// Sort by size (largest first) using sort.Slice for O(n log n)
 	sort.Slice(results, func(i, j int) bool {

@@ -5,18 +5,30 @@ import {
     Smartphone,
     Box,
     Atom,
-    Database,
-    FolderOpen
+    FolderOpen,
+    Bird,
+    Code2,
+    Cog,
+    Zap,
+    Package,
+    Container,
+    Coffee
 } from 'lucide-react'
 
-// Category definitions  
+// Category definitions
 const CATEGORIES = [
-    { id: 'all', name: 'All Items', icon: FolderOpen, color: 'text-gray-400', bgColor: 'bg-gray-500/10', types: ['xcode', 'android', 'node', 'react-native', 'cache'] },
+    { id: 'all', name: 'All Items', icon: FolderOpen, color: 'text-gray-400', bgColor: 'bg-gray-500/10', types: ['xcode', 'android', 'node', 'react-native', 'flutter', 'python', 'rust', 'go', 'homebrew', 'docker', 'java'] },
     { id: 'xcode', name: 'Xcode', icon: Apple, color: 'text-blue-400', bgColor: 'bg-blue-500/10', types: ['xcode'] },
     { id: 'android', name: 'Android', icon: Smartphone, color: 'text-green-400', bgColor: 'bg-green-500/10', types: ['android'] },
     { id: 'node', name: 'Node.js', icon: Box, color: 'text-yellow-400', bgColor: 'bg-yellow-500/10', types: ['node'] },
     { id: 'react-native', name: 'React Native', icon: Atom, color: 'text-cyan-400', bgColor: 'bg-cyan-500/10', types: ['react-native'] },
-    { id: 'cache', name: 'Cache', icon: Database, color: 'text-purple-400', bgColor: 'bg-purple-500/10', types: ['cache'] },
+    { id: 'flutter', name: 'Flutter', icon: Bird, color: 'text-blue-500', bgColor: 'bg-blue-600/10', types: ['flutter'] },
+    { id: 'python', name: 'Python', icon: Code2, color: 'text-blue-600', bgColor: 'bg-blue-700/10', types: ['python'] },
+    { id: 'rust', name: 'Rust', icon: Cog, color: 'text-orange-500', bgColor: 'bg-orange-500/10', types: ['rust'] },
+    { id: 'go', name: 'Go', icon: Zap, color: 'text-cyan-500', bgColor: 'bg-cyan-600/10', types: ['go'] },
+    { id: 'homebrew', name: 'Homebrew', icon: Package, color: 'text-amber-500', bgColor: 'bg-amber-500/10', types: ['homebrew'] },
+    { id: 'docker', name: 'Docker', icon: Container, color: 'text-sky-500', bgColor: 'bg-sky-500/10', types: ['docker'] },
+    { id: 'java', name: 'Java', icon: Coffee, color: 'text-red-600', bgColor: 'bg-red-600/10', types: ['java'] },
 ] as const
 
 // CSS styles as objects to avoid Tailwind issues
@@ -101,19 +113,31 @@ const styles = {
 const colorMap: Record<string, string> = {
     'text-gray-400': '#9ca3af',
     'text-blue-400': '#60a5fa',
+    'text-blue-500': '#3b82f6',
+    'text-blue-600': '#2563eb',
     'text-green-400': '#4ade80',
     'text-yellow-400': '#facc15',
     'text-cyan-400': '#22d3ee',
-    'text-purple-400': '#c084fc',
+    'text-cyan-500': '#06b6d4',
+    'text-orange-500': '#f97316',
+    'text-amber-500': '#f59e0b',
+    'text-sky-500': '#0ea5e9',
+    'text-red-600': '#dc2626',
 }
 
 const bgColorMap: Record<string, string> = {
     'bg-gray-500/10': 'rgba(107, 114, 128, 0.1)',
     'bg-blue-500/10': 'rgba(59, 130, 246, 0.1)',
+    'bg-blue-600/10': 'rgba(37, 99, 235, 0.1)',
+    'bg-blue-700/10': 'rgba(29, 78, 216, 0.1)',
     'bg-green-500/10': 'rgba(34, 197, 94, 0.1)',
     'bg-yellow-500/10': 'rgba(234, 179, 8, 0.1)',
     'bg-cyan-500/10': 'rgba(6, 182, 212, 0.1)',
-    'bg-purple-500/10': 'rgba(168, 85, 247, 0.1)',
+    'bg-cyan-600/10': 'rgba(8, 145, 178, 0.1)',
+    'bg-orange-500/10': 'rgba(249, 115, 22, 0.1)',
+    'bg-amber-500/10': 'rgba(245, 158, 11, 0.1)',
+    'bg-sky-500/10': 'rgba(14, 165, 233, 0.1)',
+    'bg-red-600/10': 'rgba(220, 38, 38, 0.1)',
 }
 
 export function Sidebar() {
@@ -129,13 +153,13 @@ export function Sidebar() {
     }
 
     const isCategoryActive = (types: readonly string[]) => {
-        if (types.length === 5 && typeFilter.length === 0) return true
+        if (types.length === 11 && typeFilter.length === 0) return true
         if (typeFilter.length === 0) return false
         return JSON.stringify([...types].sort()) === JSON.stringify([...typeFilter].sort())
     }
 
     const handleClick = (types: readonly string[]) => {
-        setTypeFilter(types.length === 5 ? [] : [...types])
+        setTypeFilter(types.length === 11 ? [] : [...types])
     }
 
     return (
@@ -151,6 +175,11 @@ export function Sidebar() {
                     const Icon = cat.icon
                     const iconColor = colorMap[cat.color] || '#888'
                     const iconBg = bgColorMap[cat.bgColor] || 'rgba(100,100,100,0.1)'
+
+                    // Hide category if no items (except "All Items")
+                    if (cat.id !== 'all' && stats.count === 0) {
+                        return null
+                    }
 
                     return (
                         <div
