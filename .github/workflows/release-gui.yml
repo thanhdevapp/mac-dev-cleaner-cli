@@ -89,19 +89,25 @@ jobs:
       - name: Create DMG (ARM64)
         run: |
           cd build/bin
+          # Rename to clean app name for DMG
+          mv "Mac Dev Cleaner-arm64.app" "Mac Dev Cleaner.app"
           hdiutil create \
             -volname "Mac Dev Cleaner" \
-            -srcfolder "Mac Dev Cleaner-arm64.app" \
+            -srcfolder "Mac Dev Cleaner.app" \
             -ov -format UDZO \
             "Mac-Dev-Cleaner-${{ steps.version.outputs.version }}-arm64.dmg"
+          # Restore original name for next build
+          mv "Mac Dev Cleaner.app" "Mac Dev Cleaner-arm64.app"
           echo "✅ Created ARM64 DMG"
 
       - name: Create DMG (AMD64)
         run: |
           cd build/bin
+          # Rename to clean app name for DMG
+          mv "Mac Dev Cleaner-amd64.app" "Mac Dev Cleaner.app"
           hdiutil create \
             -volname "Mac Dev Cleaner" \
-            -srcfolder "Mac Dev Cleaner-amd64.app" \
+            -srcfolder "Mac Dev Cleaner.app" \
             -ov -format UDZO \
             "Mac-Dev-Cleaner-${{ steps.version.outputs.version }}-amd64.dmg"
           echo "✅ Created AMD64 DMG"
