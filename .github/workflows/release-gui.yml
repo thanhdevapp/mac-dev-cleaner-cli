@@ -42,11 +42,13 @@ jobs:
       - name: Build Wails App (macOS ARM64)
         run: |
           ~/go/bin/wails build -platform darwin/arm64
+          mv "build/bin/Mac Dev Cleaner.app" "build/bin/Mac Dev Cleaner-arm64.app"
           echo "✅ Built ARM64 app"
 
       - name: Build Wails App (macOS AMD64)
         run: |
-          ~/go/bin/wails build -platform darwin/amd64 -o "Mac Dev Cleaner-amd64"
+          ~/go/bin/wails build -platform darwin/amd64
+          mv "build/bin/Mac Dev Cleaner.app" "build/bin/Mac Dev Cleaner-amd64.app"
           echo "✅ Built AMD64 app"
 
       - name: Get version
@@ -63,10 +65,9 @@ jobs:
       - name: Create DMG (ARM64)
         run: |
           cd build/bin
-          # Create DMG using hdiutil (built-in macOS)
           hdiutil create \
             -volname "Mac Dev Cleaner" \
-            -srcfolder "Mac Dev Cleaner.app" \
+            -srcfolder "Mac Dev Cleaner-arm64.app" \
             -ov -format UDZO \
             "Mac-Dev-Cleaner-${{ steps.version.outputs.version }}-arm64.dmg"
           echo "✅ Created ARM64 DMG"
@@ -74,15 +75,12 @@ jobs:
       - name: Create DMG (AMD64)
         run: |
           cd build/bin
-          # Rename AMD64 app directory if exists
-          if [ -d "Mac Dev Cleaner-amd64.app" ]; then
-            hdiutil create \
-              -volname "Mac Dev Cleaner" \
-              -srcfolder "Mac Dev Cleaner-amd64.app" \
-              -ov -format UDZO \
-              "Mac-Dev-Cleaner-${{ steps.version.outputs.version }}-amd64.dmg"
-            echo "✅ Created AMD64 DMG"
-          fi
+          hdiutil create \
+            -volname "Mac Dev Cleaner" \
+            -srcfolder "Mac Dev Cleaner-amd64.app" \
+            -ov -format UDZO \
+            "Mac-Dev-Cleaner-${{ steps.version.outputs.version }}-amd64.dmg"
+          echo "✅ Created AMD64 DMG"
 
       - name: List build artifacts
         run: |
