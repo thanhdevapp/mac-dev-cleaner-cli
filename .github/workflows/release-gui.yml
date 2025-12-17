@@ -37,7 +37,7 @@ jobs:
 
       - name: Install frontend dependencies
         working-directory: ./frontend
-        run: npm ci
+        run: npm install
 
       - name: Build Wails App (macOS ARM64)
         run: |
