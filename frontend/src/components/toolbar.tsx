@@ -3,10 +3,10 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Play, Settings, List, Grid, SplitSquareHorizontal, CheckSquare, Square, Trash2 } from 'lucide-react'
 import { useUIStore } from '@/store/ui-store'
-import { Scan, GetScanResults, GetSettings } from '../../wailsjs/go/main/App'
-import { types } from '../../wailsjs/go/models'
+import { Scan, GetSettings } from '../../wailsjs/go/main/App'
 import { useToast } from '@/components/ui/use-toast'
 import { formatBytes } from '@/lib/utils'
+import { createDefaultScanOptions } from '@/lib/scan-utils'
 import { CleanDialog } from './clean-dialog'
 
 export function Toolbar() {
@@ -21,7 +21,6 @@ export function Toolbar() {
     isScanning,
     setScanning,
     scanResults,
-    setScanResults,
     selectedPaths,
     selectAll,
     clearSelection
@@ -35,25 +34,15 @@ export function Toolbar() {
   const handleScan = async () => {
     setScanning(true)
     try {
-      // Get settings for MaxDepth
-      let maxDepth = 5;
+      // Get settings to use same scan options as auto-scan
+      let settings;
       try {
-        const settings = await GetSettings();
-        if (settings.maxDepth) maxDepth = settings.maxDepth;
+        settings = await GetSettings();
       } catch (e) {
-        console.warn("Could not load settings for scan, using default depth", e);
+        console.warn("Could not load settings for scan, using defaults", e);
       }
 
-      const opts = new types.ScanOptions({
-        IncludeXcode: true,
-        IncludeAndroid: true,
-        IncludeNode: true,
-        IncludeReactNative: true,
-        IncludeCache: true,
-        MaxDepth: maxDepth,
-        ProjectRoot: '/Users'  // Scan /Users directory
-      })
-
+      const opts = createDefaultScanOptions(settings)
       await Scan(opts)
 
       toast({
@@ -81,18 +70,16 @@ export function Toolbar() {
     // Clear selection
     clearSelection()
 
-    // Re-fetch scan results to update the list
-    try {
-      const results = await GetScanResults()
-      setScanResults(results)
+    // Trigger a new scan to refresh the results
+    toast({
+      title: 'Clean Complete',
+      description: 'Rescanning to update results...'
+    })
 
-      toast({
-        title: 'Clean Complete',
-        description: 'Files have been deleted successfully'
-      })
-    } catch (error) {
-      console.error('Failed to refresh results:', error)
-    }
+    // Wait a bit for file system to settle
+    setTimeout(async () => {
+      await handleScan()
+    }, 500)
   }
 
   return (

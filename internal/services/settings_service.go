@@ -14,6 +14,7 @@ type Settings struct {
 	ConfirmDelete  bool     `json:"confirmDelete"`  // Show confirm dialog
 	ScanCategories []string `json:"scanCategories"` // ["xcode", "android", "node"]
 	MaxDepth       int      `json:"maxDepth"`       // Tree depth limit
+	CheckAutoUpdate bool    `json:"checkAutoUpdate"` // Check for updates on startup
 }
 
 type SettingsService struct {
@@ -41,12 +42,13 @@ func (s *SettingsService) Load() error {
 	if err != nil {
 		// Set defaults
 		s.settings = Settings{
-			Theme:          "auto",
-			DefaultView:    "split",
-			AutoScan:       true,
-			ConfirmDelete:  true,
-			ScanCategories: []string{"xcode", "android", "node"},
-			MaxDepth:       5,
+			Theme:           "auto",
+			DefaultView:     "split",
+			AutoScan:        true,
+			ConfirmDelete:   true,
+			ScanCategories:  []string{"xcode", "android", "node"},
+			MaxDepth:        5,
+			CheckAutoUpdate: true,
 		}
 		return nil
 	}

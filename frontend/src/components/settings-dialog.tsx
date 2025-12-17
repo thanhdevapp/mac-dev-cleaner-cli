@@ -23,6 +23,7 @@ import { useTheme } from './theme-provider'
 import { GetSettings, UpdateSettings } from '../../wailsjs/go/main/App'
 import { services } from '../../wailsjs/go/models'
 import { useToast } from '@/components/ui/use-toast'
+import { CheckForUpdatesButton } from './update-notification'
 
 interface SettingsDialogProps {
     open: boolean
@@ -158,7 +159,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                             </div>
 
                             {/* Confirm Delete */}
-                            <div className="flex items-center justify-between">
+                            <div className="flex items-center justify-between mb-4">
                                 <div className="space-y-0.5">
                                     <Label htmlFor="confirmDelete">Confirm before deleting</Label>
                                     <p className="text-xs text-muted-foreground">
@@ -169,6 +170,21 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                                     id="confirmDelete"
                                     checked={settings.confirmDelete}
                                     onCheckedChange={(checked) => updateSetting('confirmDelete', checked)}
+                                />
+                            </div>
+
+                            {/* Check Auto Update */}
+                            <div className="flex items-center justify-between">
+                                <div className="space-y-0.5">
+                                    <Label htmlFor="checkAutoUpdate">Check for updates on startup</Label>
+                                    <p className="text-xs text-muted-foreground">
+                                        Automatically check for new versions
+                                    </p>
+                                </div>
+                                <Switch
+                                    id="checkAutoUpdate"
+                                    checked={settings.checkAutoUpdate}
+                                    onCheckedChange={(checked) => updateSetting('checkAutoUpdate', checked)}
                                 />
                             </div>
                         </div>
@@ -192,6 +208,12 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                                     How deep to search for artifacts (1-10)
                                 </p>
                             </div>
+                        </div>
+
+                        {/* Updates */}
+                        <div className="border-t pt-4">
+                            <h4 className="text-sm font-medium mb-4">Updates</h4>
+                            <CheckForUpdatesButton />
                         </div>
                     </div>
                 ) : (
