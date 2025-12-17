@@ -1,0 +1,30 @@
+#!/bin/sh
+
+echo "🔍 Running pre-push checks..."
+
+# Check if pushing a GUI tag
+PUSHING_GUI_TAG=$(git tag --points-at HEAD | grep -E "^v.*-gui$" || true)
+
+# Always run Go tests
+echo "🔨 Running Go tests..."
+go test ./cmd/... ./internal/... ./pkg/...
+if [ $? -ne 0 ]; then
+  echo "❌ Go tests failed!"
+  exit 1
+fi
+
+# Only run frontend tests if pushing GUI tag
+if [ -n "$PUSHING_GUI_TAG" ]; then
+  echo "📦 GUI tag detected: $PUSHING_GUI_TAG"
+  echo "📦 Running frontend tests..."
+  cd frontend && npm run test:run
+  if [ $? -ne 0 ]; then
+    echo "❌ Frontend tests failed!"
+    exit 1
+  fi
+  cd ..
+else
+  echo "⏭️  No GUI tag - skipping frontend tests"
+fi
+
+echo "✅ All pre-push checks passed!"
