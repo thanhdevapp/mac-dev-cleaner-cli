@@ -1,0 +1,119 @@
+name: Update Documentation
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to update to (e.g., v1.0.1)'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  update-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            VERSION="${{ github.event.release.tag_name }}"
+          else
+            VERSION="${{ github.event.inputs.version }}"
+          fi
+
+          # Remove 'v' prefix if present
+          VERSION_NUMBER="${VERSION#v}"
+
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "version_number=${VERSION_NUMBER}" >> $GITHUB_OUTPUT
+          echo "Updating to version: ${VERSION}"
+
+      - name: Update INSTALL.md
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          VERSION_NUMBER="${{ steps.version.outputs.version_number }}"
+
+          # Update version in download links
+          sed -i "s|v[0-9]\+\.[0-9]\+\.[0-9]\+|${VERSION}|g" INSTALL.md
+          sed -i "s|dev-cleaner_[0-9]\+\.[0-9]\+\.[0-9]\+|dev-cleaner_${VERSION_NUMBER}|g" INSTALL.md
+
+          # Update "Latest Release" header
+          sed -i "s|Latest Release: v[0-9]\+\.[0-9]\+\.[0-9]\+|Latest Release: ${VERSION}|" INSTALL.md
+
+          # Update last updated date
+          sed -i "s|Last updated:.*|Last updated: $(date +%Y-%m-%d)|" INSTALL.md
+
+          # Update expected version output
+          sed -i "s|dev-cleaner version [0-9]\+\.[0-9]\+\.[0-9]\+|dev-cleaner version ${VERSION_NUMBER}|g" INSTALL.md
+
+      - name: Update README.md
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          VERSION_NUMBER="${{ steps.version.outputs.version_number }}"
+
+          # Update Homebrew section - remove "Coming Soon"
+          sed -i 's|### Homebrew (Coming Soon)|### Homebrew (Recommended)|' README.md
+
+          # Add version badge if not exists
+          if ! grep -q "Version" README.md; then
+            sed -i '/\[!\[License\]/a [![Version](https://img.shields.io/badge/Version-'${VERSION_NUMBER}'-blue?style=flat-square)](https://github.com/thanhdevapp/mac-dev-cleaner-cli/releases/latest)' README.md
+          else
+            # Update existing version badge
+            sed -i "s|Version-[0-9]\+\.[0-9]\+\.[0-9]\+|Version-${VERSION_NUMBER}|" README.md
+          fi
+
+          # Update build instructions to use correct path
+          sed -i 's|go build -o dev-cleaner \.|go build -o dev-cleaner ./cmd/dev-cleaner|' README.md
+
+          # Add direct download section if not exists
+          if ! grep -q "Direct Download" README.md; then
+            # Add after Homebrew section
+            sed -i '/brew install dev-cleaner/a \\n### Direct Download\n\nDownload pre-built binaries: [INSTALL.md](INSTALL.md)' README.md
+          fi
+
+      - name: Check for changes
+        id: check_changes
+        run: |
+          if git diff --quiet INSTALL.md README.md; then
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "No changes detected"
+          else
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "Changes detected:"
+            git diff INSTALL.md README.md
+          fi
+
+      - name: Commit and push
+        if: steps.check_changes.outputs.has_changes == 'true'
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+
+          git config --local user.email "bot@goreleaser.com"
+          git config --local user.name "goreleaserbot"
+
+          git add INSTALL.md README.md
+          git commit -m "docs: Update installation docs to ${VERSION}"
+          git push
+
+      - name: Summary
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          echo "## Documentation Update Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Updated to version: **${VERSION}**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ steps.check_changes.outputs.has_changes }}" = "true" ]; then
+            echo "✅ INSTALL.md and README.md updated" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "ℹ️ No changes needed" >> $GITHUB_STEP_SUMMARY
+          fi
