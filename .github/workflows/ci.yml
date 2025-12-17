@@ -20,7 +20,7 @@ jobs:
           go-version: '1.24'
 
       - name: Create dummy frontend directory
-        run: mkdir -p frontend/dist && touch frontend/dist/.gitkeep
+        run: mkdir -p frontend/dist && echo "CLI build - frontend not included" > frontend/dist/README.txt
 
       - name: Build
         run: go build -v ./cmd/... ./internal/... ./pkg/...
@@ -85,7 +85,7 @@ jobs:
           go-version: '1.24'
 
       - name: Create dummy frontend directory
-        run: mkdir -p frontend/dist && touch frontend/dist/.gitkeep
+        run: mkdir -p frontend/dist && echo "CLI build - frontend not included" > frontend/dist/README.txt
 
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v3

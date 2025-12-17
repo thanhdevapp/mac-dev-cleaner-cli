@@ -5,7 +5,7 @@ before:
   hooks:
     - go mod tidy
     # Create dummy frontend/dist for main.go embed directive
-    - mkdir -p frontend/dist && touch frontend/dist/.gitkeep
+    - mkdir -p frontend/dist && echo "CLI build - frontend not included" > frontend/dist/README.txt
     # Test only CLI packages (exclude root main.go which requires frontend/dist)
     - go test ./cmd/... ./internal/... ./pkg/...
 
