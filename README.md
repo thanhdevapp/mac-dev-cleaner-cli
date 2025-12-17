@@ -50,6 +50,12 @@ Download and install the native app:
 - [Apple Silicon DMG](https://github.com/thanhdevapp/mac-dev-cleaner-cli/releases/latest/download/mac-dev-cleaner-darwin-arm64.dmg)
 - [Intel DMG](https://github.com/thanhdevapp/mac-dev-cleaner-cli/releases/latest/download/mac-dev-cleaner-darwin-amd64.dmg)
 
+> **⚠️ First Launch Issue?** If you see "App is damaged or incomplete" error, run:
+> ```bash
+> xattr -cr "/Applications/Mac Dev Cleaner.app"
+> ```
+> This removes the quarantine flag that macOS adds to downloaded apps.
+
 ### CLI Tool
 
 **Homebrew:**
