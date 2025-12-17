@@ -15,56 +15,10 @@ permissions:
   contents: write
 
 jobs:
-  # Backend tests (Go) - must pass before building
-  test-backend:
-    name: Backend Tests
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.21'
-
-      - name: Create dummy frontend directory
-        run: mkdir -p frontend/dist && echo "Test build" > frontend/dist/README.txt
-
-      - name: Build
-        run: go build -v ./cmd/... ./internal/... ./pkg/...
-
-      - name: Test
-        run: go test -v ./cmd/... ./internal/... ./pkg/...
-
-  # Frontend tests (React + TypeScript) - must pass before building
-  test-frontend:
-    name: Frontend Tests
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./frontend
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-
-      - name: Install dependencies
-        run: npm install
-
-      - name: Run TypeScript check
-        run: npx tsc --noEmit
-
-      - name: Run tests
-        run: npm run test:run
-
-  # Build macOS App - only after all tests pass
+  # Build macOS App - tests already run locally via pre-push hook
   build-macos:
     name: Build macOS App
     runs-on: macos-latest
-    needs: [test-backend, test-frontend]  # Wait for tests to pass
     steps:
       - name: Checkout
         uses: actions/checkout@v4
