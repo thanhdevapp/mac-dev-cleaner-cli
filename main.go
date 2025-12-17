@@ -45,7 +45,7 @@ func main() {
 			WindowIsTranslucent:  true,
 			About: &mac.AboutInfo{
 				Title:   "Mac Dev Cleaner",
-				Message: "Version 1.0.3\n\nClean development artifacts on macOS\nFree up disk space from Xcode, Gradle, node_modules & more.\n\n© 2024 thanhdevapp\nhttps://github.com/thanhdevapp/mac-dev-cleaner-cli",
+				Message: "Version 1.0.3\n\nClean development artifacts on macOS\nFree up disk space from Xcode, Gradle, node_modules & more.\n\n© 2025 thanhdevapp\nhttps://github.com/thanhdevapp/mac-dev-cleaner-cli",
 			},
 		},
 	})
