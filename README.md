@@ -22,19 +22,33 @@ Mac Dev Cleaner is a CLI tool that helps developers reclaim disk space by removi
 
 ## Installation
 
-### Homebrew (Coming Soon)
+### Quick Install (Recommended)
 
+**Homebrew:**
 ```bash
 brew tap thanhdevapp/tools
 brew install dev-cleaner
 ```
 
-### From Source
+**One-line installer:**
+```bash
+curl -fsSL https://raw.githubusercontent.com/thanhdevapp/mac-dev-cleaner-cli/dev-mvp/install.sh | bash
+```
+
+### More Options
+
+See [INSTALL.md](INSTALL.md) for:
+- Direct binary downloads (macOS ARM/Intel, Linux)
+- Build from source instructions
+- GUI installation
+- Troubleshooting
+
+### Quick Build from Source
 
 ```bash
-git clone https://github.com/thanhdevapp/dev-cleaner.git
-cd dev-cleaner
-go build -o dev-cleaner .
+git clone https://github.com/thanhdevapp/mac-dev-cleaner-cli.git
+cd mac-dev-cleaner-cli
+go build -o dev-cleaner ./cmd/dev-cleaner
 sudo mv dev-cleaner /usr/local/bin/
 ```
 
