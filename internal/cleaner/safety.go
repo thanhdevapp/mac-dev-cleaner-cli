@@ -32,6 +32,11 @@ var protectedPatterns = []string{
 
 // ValidatePath checks if a path is safe to delete
 func ValidatePath(path string) error {
+	// Allow Docker pseudo-paths
+	if strings.HasPrefix(path, "docker:") {
+		return nil
+	}
+
 	// Must be an absolute path
 	if !strings.HasPrefix(path, "/") {
 		return fmt.Errorf("path must be absolute: %s", path)

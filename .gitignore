@@ -58,7 +58,6 @@ GoogleService-Info.plist
 
 repomix-output.xml
 .serena/cache
-plans/**/*
 !plans/templates/*
 screenshots/*
 docs/screenshots/*
@@ -77,6 +76,18 @@ dev-cleaner
 .claude/settings.bak.json
 .claude
 CLAUDE.md
+
+# Project-specific
+design-mockups
+/plans/templates/
+
+# IDE
+/.idea/git_toolbox_prj.xml
+/.idea/mac-dev-cleaner-cli.iml
+/.idea/modules.xml
+/.idea/vcs.xml
+
+# Frontend node_modules (for Wails GUI)
+frontend/node_modules
 plans
 docs
-design-mockups

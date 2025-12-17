@@ -73,6 +73,94 @@ func (s *Scanner) ScanAll(opts types.ScanOptions) ([]types.ScanResult, error) {
 		}()
 	}
 
+	if opts.IncludeFlutter {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			flutterResults := s.ScanFlutter(opts.MaxDepth)
+			mu.Lock()
+			results = append(results, flutterResults...)
+			mu.Unlock()
+		}()
+	}
+
+	if opts.IncludePython {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			pythonResults := s.ScanPython(opts.MaxDepth)
+			mu.Lock()
+			results = append(results, pythonResults...)
+			mu.Unlock()
+		}()
+	}
+
+	if opts.IncludeRust {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			rustResults := s.ScanRust(opts.MaxDepth)
+			mu.Lock()
+			results = append(results, rustResults...)
+			mu.Unlock()
+		}()
+	}
+
+	if opts.IncludeGo {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			goResults := s.ScanGo(opts.MaxDepth)
+			mu.Lock()
+			results = append(results, goResults...)
+			mu.Unlock()
+		}()
+	}
+
+	if opts.IncludeHomebrew {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			homebrewResults := s.ScanHomebrew()
+			mu.Lock()
+			results = append(results, homebrewResults...)
+			mu.Unlock()
+		}()
+	}
+
+	if opts.IncludeDocker {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			dockerResults := s.ScanDocker()
+			mu.Lock()
+			results = append(results, dockerResults...)
+			mu.Unlock()
+		}()
+	}
+
+	if opts.IncludeJava {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			javaResults := s.ScanJava(opts.MaxDepth)
+			mu.Lock()
+			results = append(results, javaResults...)
+			mu.Unlock()
+		}()
+	}
+
+	if opts.IncludeReactNative {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			rnResults := s.ScanReactNative()
+			mu.Lock()
+			results = append(results, rnResults...)
+			mu.Unlock()
+		}()
+	}
+
 	wg.Wait()
 	return results, nil
 }

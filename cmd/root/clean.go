@@ -16,28 +16,78 @@ import (
 )
 
 var (
-	dryRun       bool
-	confirmFlag  bool
-	cleanIOS     bool
-	cleanAndroid bool
-	cleanNode    bool
-	useTUI       bool
+	dryRun          bool
+	confirmFlag     bool
+	cleanIOS        bool
+	cleanAndroid    bool
+	cleanNode       bool
+	cleanReactNative bool
+	cleanFlutter    bool
+	cleanPython     bool
+	cleanRust       bool
+	cleanGo         bool
+	cleanHomebrew   bool
+	cleanDocker     bool
+	cleanJava       bool
+	useTUI          bool
 )
 
 // cleanCmd represents the clean command
 var cleanCmd = &cobra.Command{
-	Use:   "clean",
+	Use:   "clean [flags]",
 	Short: "Clean development artifacts",
 	Long: `Interactively select and clean development artifacts.
 
-By default, runs in TUI mode with interactive selection.
-Use --confirm to actually delete files (default is dry-run).
+By default, runs in TUI mode with interactive selection and dry-run
+enabled (preview only). Use --confirm to actually delete files.
+
+The TUI provides:
+  • Real-time deletion progress with package-manager style output
+  • Tree navigation for exploring nested folders
+  • Quick single-item cleanup or batch operations
+  • All operations logged to ~/.dev-cleaner.log
+
+Safety Features:
+  ✓ Dry-run mode by default (files are safe)
+  ✓ Confirmation required before deletion
+  ✓ Path validation (never touches system files)
+  ✓ All actions logged for audit trail
 
 Examples:
-  dev-cleaner clean              # Interactive TUI (dry-run)
-  dev-cleaner clean --confirm    # Interactive TUI (actually delete)
-  dev-cleaner clean --no-tui     # Simple text mode
-  dev-cleaner clean --ios        # Clean iOS artifacts only`,
+  dev-cleaner clean                   # Interactive TUI (dry-run)
+  dev-cleaner clean --confirm         # Interactive TUI (actually delete)
+  dev-cleaner clean --no-tui          # Simple text mode
+  dev-cleaner clean --ios --confirm   # Clean iOS artifacts only
+  dev-cleaner clean --node            # Preview Node.js cleanup (dry-run)
+
+Flags:
+  --confirm         Actually delete files (disables dry-run)
+  --dry-run         Preview only, don't delete (default: true)
+  --ios             Clean iOS/Xcode artifacts only
+  --android         Clean Android/Gradle artifacts only
+  --node            Clean Node.js artifacts only
+  --flutter         Clean Flutter/Dart artifacts only
+  --python          Clean Python caches
+  --rust            Clean Rust/Cargo caches
+  --go              Clean Go caches
+  --homebrew        Clean Homebrew caches
+  --docker          Clean Docker images, containers, volumes
+  --java            Clean Maven/Gradle caches
+  --no-tui, -T      Disable TUI, use simple text mode
+  --tui             Use interactive TUI mode (default: true)
+
+TUI Keyboard Shortcuts:
+  c            Quick clean current item (ignores selections)
+  Enter        Clean all selected items (batch mode)
+  Space        Toggle selection
+  a/n          Select all / none
+  →/l          Enter tree mode (explore folders)
+  ?            Show help screen
+
+Important:
+  • 'c' clears all selections and cleans ONLY the current item
+  • 'Enter' cleans ALL selected items (batch operation)
+  • Tree mode allows deletion at any folder level`,
 	Run: runClean,
 }
 
@@ -49,6 +99,15 @@ func init() {
 	cleanCmd.Flags().BoolVar(&cleanIOS, "ios", false, "Clean iOS/Xcode artifacts only")
 	cleanCmd.Flags().BoolVar(&cleanAndroid, "android", false, "Clean Android/Gradle artifacts only")
 	cleanCmd.Flags().BoolVar(&cleanNode, "node", false, "Clean Node.js artifacts only")
+	cleanCmd.Flags().BoolVar(&cleanReactNative, "react-native", false, "Clean React Native caches")
+	cleanCmd.Flags().BoolVar(&cleanReactNative, "rn", false, "Alias for --react-native")
+	cleanCmd.Flags().BoolVar(&cleanFlutter, "flutter", false, "Clean Flutter/Dart artifacts only")
+	cleanCmd.Flags().BoolVar(&cleanPython, "python", false, "Clean Python caches")
+	cleanCmd.Flags().BoolVar(&cleanRust, "rust", false, "Clean Rust/Cargo caches")
+	cleanCmd.Flags().BoolVar(&cleanGo, "go", false, "Clean Go caches")
+	cleanCmd.Flags().BoolVar(&cleanHomebrew, "homebrew", false, "Clean Homebrew caches")
+	cleanCmd.Flags().BoolVar(&cleanDocker, "docker", false, "Clean Docker images, containers, volumes")
+	cleanCmd.Flags().BoolVar(&cleanJava, "java", false, "Clean Maven/Gradle caches")
 	cleanCmd.Flags().BoolVar(&useTUI, "tui", true, "Use interactive TUI mode (default)")
 	cleanCmd.Flags().BoolP("no-tui", "T", false, "Disable TUI, use simple text mode")
 }
@@ -76,14 +135,24 @@ func runClean(cmd *cobra.Command, args []string) {
 		MaxDepth: 3,
 	}
 
-	if cleanIOS || cleanAndroid || cleanNode {
+	specificFlagSet := cleanIOS || cleanAndroid || cleanNode || cleanReactNative ||
+		cleanFlutter || cleanPython || cleanRust || cleanGo ||
+		cleanHomebrew || cleanDocker || cleanJava
+
+	if specificFlagSet {
 		opts.IncludeXcode = cleanIOS
 		opts.IncludeAndroid = cleanAndroid
 		opts.IncludeNode = cleanNode
+		opts.IncludeReactNative = cleanReactNative
+		opts.IncludeFlutter = cleanFlutter
+		opts.IncludePython = cleanPython
+		opts.IncludeRust = cleanRust
+		opts.IncludeGo = cleanGo
+		opts.IncludeHomebrew = cleanHomebrew
+		opts.IncludeDocker = cleanDocker
+		opts.IncludeJava = cleanJava
 	} else {
-		opts.IncludeXcode = true
-		opts.IncludeAndroid = true
-		opts.IncludeNode = true
+		opts = types.DefaultScanOptions()
 	}
 
 	ui.PrintHeader("Scanning for development artifacts...")
@@ -104,7 +173,7 @@ func runClean(cmd *cobra.Command, args []string) {
 
 	// Use TUI or simple mode
 	if useTUI {
-		if err := tui.Run(results, dryRun); err != nil {
+		if err := tui.Run(results, dryRun, Version); err != nil {
 			fmt.Fprintf(os.Stderr, "TUI error: %v\n", err)
 			os.Exit(1)
 		}

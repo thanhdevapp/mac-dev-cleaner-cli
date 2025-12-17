@@ -8,7 +8,7 @@ before:
 
 builds:
   - id: dev-cleaner
-    main: ./main.go
+    main: ./cmd/dev-cleaner/main.go
     binary: dev-cleaner
     env:
       - CGO_ENABLED=0

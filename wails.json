@@ -1,0 +1,15 @@
+{
+  "name": "Mac Dev Cleaner",
+  "version": "1.0.0",
+  "author": {
+    "name": "thanhdevapp",
+    "email": "thanhdevapp@gmail.com"
+  },
+  "debounceMS": 100,
+  "wailsjsdir": "./frontend",
+  "binaryname": "dev-cleaner-gui",
+  "frontend:install": "npm install",
+  "frontend:build": "npm run build",
+  "frontend:dev:watcher": "npm run dev",
+  "frontend:dir": "./frontend"
+}
